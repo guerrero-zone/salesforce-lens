@@ -9,10 +9,10 @@
     "watch": "pnpm --filter extension watch",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:extension": "pnpm --filter extension test",
-    "test:webviews": "pnpm --filter webviews test",
-    "build:webviews": "pnpm --filter webviews build",
-    "dev:webviews": "pnpm --filter webviews dev"
+    "test:extension": "pnpm --filter scratch-org-lens test",
+    "test:webviews": "pnpm --filter @scratch-org-lens/webviews test",
+    "build:webviews": "pnpm --filter @scratch-org-lens/webviews build",
+    "dev:webviews": "pnpm --filter @scratch-org-lens/webviews dev"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

@@ -3,7 +3,12 @@
   "displayName": "Scratch Org Lens",
   "description": "Salesforce Scratch Org admin tool",
   "version": "0.0.1",
-  "publisher": "scratch-org-lens",
+  "publisher": "amguerrero",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guerrero-zone/scratch-org-lens.git"
+  },
+  "license": "GPL v3",
   "engines": {
     "vscode": "^1.99.3"
   },
