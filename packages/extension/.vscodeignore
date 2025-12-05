@@ -1,0 +1,32 @@
+# Build output (will be included in package)
+# out/
+
+# Source files (not needed in package)
+src/
+tsconfig.json
+
+# Development files
+.vscode/
+scripts/
+node_modules/
+
+# Test files
+**/*.test.ts
+**/*.test.js
+**/test/
+
+# Development webviews (production webviews are copied to webviews/out)
+# webviews/ is included, but ../webviews/ is not
+
+# Git files
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Other
+.DS_Store
+*.log
+

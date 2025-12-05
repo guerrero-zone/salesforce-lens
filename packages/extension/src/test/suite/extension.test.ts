@@ -209,3 +209,4 @@ suite("Message Handling", () => {
     assert.ok(messageHandlerSet, "Message handler should be set up");
   });
 });
+

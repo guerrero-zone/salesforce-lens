@@ -1,75 +1,23 @@
 {
-  "name": "scratch-org-lens",
-  "displayName": "Scratch Org Lens",
-  "description": "Salesforce Scratch Org admin tool",
+  "name": "scratch-org-lens-monorepo",
+  "private": true,
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.99.3"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "scratch-org-lens.dashboard",
-        "title": "Scratch Org Lens: Dashboard",
-        "icon": "$(dashboard)"
-      }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "scratch-org-lens",
-          "title": "Scratch Org Lens",
-          "icon": "resources/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "scratch-org-lens": [
-        {
-          "type": "webview",
-          "id": "scratch-org-lens.dashboardView",
-          "name": "Dashboard",
-          "visibility": "visible"
-        }
-      ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "scratch-org-lens.dashboard",
-          "when": "view == scratch-org-lens.dashboardView",
-          "group": "navigation"
-        }
-      ]
-    }
-  },
+  "description": "Scratch Org Lens monorepo",
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "test:extension": "node ./out/test/runTest.js",
-    "test:webview": "cd webview && pnpm test",
-    "test:all": "npm run test:extension && npm run test:webview"
+    "build": "pnpm -r build",
+    "compile": "pnpm --filter extension compile",
+    "watch": "pnpm --filter extension watch",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:extension": "pnpm --filter extension test",
+    "test:webviews": "pnpm --filter webviews test",
+    "build:webviews": "pnpm --filter webviews build",
+    "dev:webviews": "pnpm --filter webviews dev"
   },
   "devDependencies": {
-    "@types/vscode": "^1.99.3",
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.1",
-    "@types/node": "22.14.0",
-    "@typescript-eslint/eslint-plugin": "^5.59.8",
-    "@typescript-eslint/parser": "^5.59.8",
-    "eslint": "^8.41.0",
-    "glob": "^8.1.0",
-    "mocha": "^10.2.0",
-    "typescript": "^5.9.3",
-    "@vscode/test-electron": "^2.3.2"
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "pnpm": ">=8.0.0"
   }
 }

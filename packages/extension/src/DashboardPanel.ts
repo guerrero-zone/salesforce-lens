@@ -10,6 +10,32 @@ export class DashboardPanel {
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
 
+  /**
+   * Gets the webview output path, checking both production (webviews/out)
+   * and development (../webviews/out) locations
+   */
+  private static getWebviewOutPath(extensionUri: vscode.Uri): vscode.Uri {
+    // First, try production path (webviews/out inside extension package)
+    const productionPath = vscode.Uri.joinPath(extensionUri, "webviews", "out");
+    if (fs.existsSync(productionPath.fsPath)) {
+      return productionPath;
+    }
+
+    // Fall back to development path (../webviews/out - monorepo structure)
+    const developmentPath = vscode.Uri.joinPath(
+      extensionUri,
+      "..",
+      "webviews",
+      "out"
+    );
+    if (fs.existsSync(developmentPath.fsPath)) {
+      return developmentPath;
+    }
+
+    // If neither exists, return production path (will throw error with better message)
+    return productionPath;
+  }
+
   public static createOrShow(extensionUri: vscode.Uri) {
     try {
       console.log("DashboardPanel.createOrShow called");
@@ -26,15 +52,15 @@ export class DashboardPanel {
 
       console.log("Creating new dashboard panel");
       // Otherwise, create a new panel
+      const webviewsOutUri = DashboardPanel.getWebviewOutPath(extensionUri);
+
       const panel = vscode.window.createWebviewPanel(
         DashboardPanel.viewType,
         "Scratch Org Lens",
         column || vscode.ViewColumn.One,
         {
           enableScripts: true,
-          localResourceRoots: [
-            vscode.Uri.joinPath(extensionUri, "webview", "out"),
-          ],
+          localResourceRoots: [webviewsOutUri],
           retainContextWhenHidden: true,
         }
       );
@@ -149,16 +175,17 @@ export class DashboardPanel {
 
   private _getHtmlForWebview(webview: vscode.Webview) {
     try {
-      const webviewOutPath = vscode.Uri.joinPath(
-        this._extensionUri,
-        "webview",
-        "out"
+      // Get webview path (checks both production and development locations)
+      const webviewOutPath = DashboardPanel.getWebviewOutPath(
+        this._extensionUri
       );
 
       // Read the built index.html
       const indexPath = path.join(webviewOutPath.fsPath, "index.html");
       if (!fs.existsSync(indexPath)) {
-        throw new Error(`Index file not found: ${indexPath}`);
+        throw new Error(
+          `Index file not found: ${indexPath}. Make sure webviews are built.`
+        );
       }
       let html = fs.readFileSync(indexPath, "utf8");
 

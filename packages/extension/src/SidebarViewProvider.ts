@@ -107,3 +107,4 @@ function getNonce() {
   }
   return text;
 }
+

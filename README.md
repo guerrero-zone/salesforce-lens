@@ -1,71 +1,249 @@
-# scratch-org-lens README
+# Scratch Org Lens
 
-This is the README for your extension "scratch-org-lens". After writing up a brief description, we recommend including the following sections.
+A VS Code extension for managing Salesforce Scratch Orgs.
+
+## Project Structure
+
+This is a pnpm monorepo with the following structure:
+
+```
+scratch-org-lens/
+├── packages/
+│   ├── extension/     # VS Code extension
+│   └── webviews/      # Svelte webview UI components
+├── package.json       # Root package.json
+└── pnpm-workspace.yaml
+```
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) >= 18
+- [pnpm](https://pnpm.io/) >= 8.0.0
+
+## Getting Started
+
+1. Install dependencies:
+
+```bash
+pnpm install
+```
+
+2. Build the webviews:
+
+```bash
+pnpm build:webviews
+```
+
+3. Compile the extension:
+
+```bash
+pnpm compile
+```
+
+## Development
+
+### Webviews Development
+
+```bash
+# Start dev server with hot reload
+pnpm dev:webviews
+
+# Run tests
+pnpm test:webviews
+
+# Build for production
+pnpm build:webviews
+```
+
+### Extension Development
+
+```bash
+# Compile TypeScript
+pnpm compile
+
+# Watch mode
+pnpm watch
+
+# Run extension tests
+pnpm test:extension
+```
+
+### Run All Tests
+
+```bash
+pnpm test
+```
+
+## Packaging for Production
+
+### How Webviews Are Loaded
+
+The extension uses a smart path resolution that works in both development and production:
+
+- **Development (Monorepo):** Webviews are loaded from `../webviews/out` (sibling package)
+- **Production (Packaged):** Webviews are loaded from `webviews/out` (inside extension package)
+
+The `DashboardPanel` automatically detects which location exists and uses the appropriate path.
+
+### Packaging Steps
+
+1. **Build webviews:**
+   ```bash
+   pnpm build:webviews
+   ```
+
+2. **Package the extension:**
+   ```bash
+   cd packages/extension
+   pnpm package
+   ```
+
+   This will:
+   - Compile TypeScript (`pnpm compile`)
+   - Copy webviews to `packages/extension/webviews/out` (`pnpm copy-webviews`)
+   - Create `.vsix` file (`vsce package`)
+
+3. **The packaged extension structure:**
+   ```
+   extension/
+   ├── out/              # Compiled extension code
+   ├── webviews/         # Copied webview build output
+   │   └── out/
+   │       ├── index.html
+   │       └── assets/
+   ├── resources/        # Extension resources
+   └── package.json      # Extension manifest
+   ```
+
+### Important Files
+
+- **`.vscodeignore`**: Excludes development files from the package (source files, tests, etc.)
+- **`scripts/copy-webviews.js`**: Copies webviews before packaging
+- **`vscode:prepublish`**: Automatically runs before packaging (via `vsce`)
+
+## Testing the Extension
+
+### Automated Tests
+
+Run the extension's automated tests:
+
+```bash
+# Build webviews first (required for extension tests)
+pnpm build:webviews
+
+# Run extension tests
+pnpm test:extension
+```
+
+This will:
+1. Compile the extension TypeScript code
+2. Download a VS Code instance (if needed)
+3. Run the test suite in a VS Code Extension Host
+
+### Manual Testing / Debugging
+
+#### Option 1: Using VS Code Debugger (Recommended)
+
+1. **Build everything first:**
+   ```bash
+   pnpm build:webviews
+   pnpm compile
+   ```
+
+2. **Open the Run and Debug panel** (Cmd+Shift+D / Ctrl+Shift+D)
+
+3. **Select "Run Extension"** from the dropdown and press F5
+
+   This will:
+   - Build webviews and compile extension (via pre-launch task)
+   - Launch a new VS Code window with your extension loaded
+   - Enable breakpoints and debugging
+
+4. **To run tests in debug mode:**
+   - Select "Extension Tests" from the dropdown
+   - Set breakpoints in your test files
+   - Press F5 to run tests with debugging
+
+#### Option 2: Using Command Line
+
+1. **Build everything:**
+   ```bash
+   pnpm build:webviews
+   pnpm compile
+   ```
+
+2. **Open VS Code from the extension directory:**
+   ```bash
+   code packages/extension
+   ```
+
+3. **Press F5** to launch the extension in a new window
+
+#### Option 3: Package and Install
+
+1. **Build and package the extension** (if you have `vsce` installed):
+   ```bash
+   # From the root directory
+   pnpm build:webviews
+   cd packages/extension
+   pnpm package
+   ```
+   
+   Or manually:
+   ```bash
+   pnpm build:webviews
+   cd packages/extension
+   pnpm compile
+   pnpm copy-webviews
+   vsce package
+   ```
+
+2. **Install the `.vsix` file** in VS Code:
+   - Open VS Code
+   - Go to Extensions view
+   - Click "..." menu → "Install from VSIX..."
+   - Select the generated `.vsix` file
+
+**Note:** The `package` script automatically:
+- Compiles the extension TypeScript
+- Copies webviews from `packages/webviews/out` to `packages/extension/webviews/out`
+- Packages everything into a `.vsix` file
+
+### Testing Checklist
+
+Before testing, ensure:
+
+- ✅ Webviews are built (`pnpm build:webviews`)
+- ✅ Extension is compiled (`pnpm compile`)
+- ✅ All dependencies are installed (`pnpm install`)
+
+### Debugging Tips
+
+- **Set breakpoints** in TypeScript files (`.ts`) - they will work after compilation
+- **Check the Debug Console** for extension logs
+- **Use `console.log()`** in extension code - output appears in the Debug Console
+- **Webview debugging**: Right-click in the webview → "Inspect" to open DevTools
+- **Extension Host logs**: Check the Output panel → select "Log (Extension Host)"
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Dashboard view for Scratch Org management
+- Sidebar panel for quick access
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+Coming soon.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+None at this time.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+Initial development release.
 
 ---
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**
