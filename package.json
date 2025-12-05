@@ -14,10 +14,39 @@
   "contributes": {
     "commands": [
       {
-        "command": "scratch-org-lens.helloWorld",
-        "title": "Hello World"
+        "command": "scratch-org-lens.dashboard",
+        "title": "Scratch Org Lens: Dashboard",
+        "icon": "$(dashboard)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "scratch-org-lens",
+          "title": "Scratch Org Lens",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "scratch-org-lens": [
+        {
+          "type": "webview",
+          "id": "scratch-org-lens.dashboardView",
+          "name": "Dashboard",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "scratch-org-lens.dashboard",
+          "when": "view == scratch-org-lens.dashboardView",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -25,7 +54,10 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:extension": "node ./out/test/runTest.js",
+    "test:webview": "cd webview && pnpm test",
+    "test:all": "npm run test:extension && npm run test:webview"
   },
   "devDependencies": {
     "@types/vscode": "^1.99.3",

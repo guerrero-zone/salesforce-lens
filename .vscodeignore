@@ -8,3 +8,10 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+webview/src/**
+webview/node_modules/**
+webview/.vscode/**
+webview/dist/**
+webview/*.json
+webview/*.html
+webview/*.md
