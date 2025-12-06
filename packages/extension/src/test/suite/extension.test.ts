@@ -8,12 +8,24 @@ suite("Extension Test Suite", () => {
 
   suite("Extension Activation", () => {
     test("Extension should be present", () => {
-      const extension = vscode.extensions.getExtension("undefined_publisher.scratch-org-lens");
+      const extension = vscode.extensions.getExtension(
+        "undefined_publisher.scratch-org-lens"
+      );
       // Extension may not be found if not packaged, so we test the module directly
       assert.ok(true, "Extension module loaded");
     });
 
     test("Dashboard command should be registered", async () => {
+      // Ensure extension is activated by executing the command first
+      // This will trigger activation if not already active
+      try {
+        await vscode.commands.executeCommand("scratch-org-lens.dashboard");
+        // Give time for activation to complete
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch {
+        // Command might fail if extension activates but has issues, that's ok for this test
+      }
+
       const commands = await vscode.commands.getCommands(true);
       assert.ok(
         commands.includes("scratch-org-lens.dashboard"),
@@ -143,11 +155,20 @@ suite("HTML Generation", () => {
 
     // Check for required elements
     assert.ok(html.includes("<!DOCTYPE html>"), "Should have DOCTYPE");
-    assert.ok(html.includes("<title>Scratch Org Lens</title>"), "Should have title");
+    assert.ok(
+      html.includes("<title>Scratch Org Lens</title>"),
+      "Should have title"
+    );
     assert.ok(html.includes("Scratch Org Lens"), "Should have heading");
-    assert.ok(html.includes("Open Dashboard"), "Should have Open Dashboard button");
+    assert.ok(
+      html.includes("Open Dashboard"),
+      "Should have Open Dashboard button"
+    );
     assert.ok(html.includes("openDashboardBtn"), "Should have button ID");
-    assert.ok(html.includes("acquireVsCodeApi"), "Should have VS Code API acquisition");
+    assert.ok(
+      html.includes("acquireVsCodeApi"),
+      "Should have VS Code API acquisition"
+    );
     assert.ok(html.includes("postMessage"), "Should have postMessage call");
     assert.ok(
       html.includes("Content-Security-Policy"),
@@ -171,7 +192,10 @@ suite("HTML Generation", () => {
     const html = (provider as any)._getHtmlForWebview(mockWebview);
 
     // CSP should include required directives
-    assert.ok(html.includes("default-src 'none'"), "CSP should have default-src 'none'");
+    assert.ok(
+      html.includes("default-src 'none'"),
+      "CSP should have default-src 'none'"
+    );
     assert.ok(html.includes("style-src"), "CSP should have style-src");
     assert.ok(html.includes("script-src"), "CSP should have script-src");
   });
@@ -198,7 +222,10 @@ suite("Message Handling", () => {
     };
 
     const mockContext = {};
-    const mockToken = { isCancellationRequested: false, onCancellationRequested: () => ({ dispose: () => {} }) };
+    const mockToken = {
+      isCancellationRequested: false,
+      onCancellationRequested: () => ({ dispose: () => {} }),
+    };
 
     provider.resolveWebviewView(
       mockWebviewView as any,
@@ -209,4 +236,3 @@ suite("Message Handling", () => {
     assert.ok(messageHandlerSet, "Message handler should be set up");
   });
 });
-

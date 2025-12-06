@@ -5,8 +5,8 @@
   "description": "Scratch Org Lens monorepo",
   "scripts": {
     "build": "pnpm -r build",
-    "compile": "pnpm --filter extension compile",
-    "watch": "pnpm --filter extension watch",
+    "compile": "pnpm --filter scratch-org-lens compile",
+    "watch": "pnpm --filter scratch-org-lens watch",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "test:extension": "pnpm --filter scratch-org-lens test",
