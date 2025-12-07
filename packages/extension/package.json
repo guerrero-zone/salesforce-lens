@@ -56,8 +56,8 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile && pnpm run copy-webviews",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "pnpm run copy-webviews && tsc -p ./",
+    "watch": "pnpm run copy-webviews && tsc -watch -p ./",
     "copy-webviews": "node scripts/copy-webviews.js",
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src --ext ts",

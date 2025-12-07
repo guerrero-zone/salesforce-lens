@@ -1,6 +1,11 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import {
+  salesforceService,
+  DevHubInfo,
+  ScratchOrgInfo,
+} from "./services/SalesforceService";
 
 export class DashboardPanel {
   public static currentPanel: DashboardPanel | undefined;
@@ -97,12 +102,8 @@ export class DashboardPanel {
 
       // Handle messages from the webview
       this._panel.webview.onDidReceiveMessage(
-        (message) => {
-          switch (message.command) {
-            case "alert":
-              vscode.window.showInformationMessage(message.text);
-              return;
-          }
+        async (message) => {
+          await this._handleMessage(message);
         },
         null,
         this._disposables
@@ -129,6 +130,157 @@ export class DashboardPanel {
         `Failed to initialize dashboard: ${errorMessage}`
       );
     }
+  }
+
+  private async _handleMessage(message: {
+    command: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [key: string]: any;
+  }): Promise<void> {
+    switch (message.command) {
+      case "alert":
+        vscode.window.showInformationMessage(message.text);
+        return;
+
+      case "getDevHubs":
+        await this._sendDevHubs();
+        return;
+
+      case "getScratchOrgs":
+        await this._sendScratchOrgs(message.devHubUsername);
+        return;
+
+      case "deleteScratchOrgs":
+        await this._deleteScratchOrgs(message.scratchOrgs);
+        return;
+
+      case "refreshDevHub":
+        await this._refreshDevHub(message.devHubUsername);
+        return;
+    }
+  }
+
+  private async _sendDevHubs(): Promise<void> {
+    try {
+      this._postMessage({ command: "devHubsLoading" });
+      const devHubs: DevHubInfo[] =
+        await salesforceService.getDevHubsWithLimits();
+      this._postMessage({ command: "devHubsData", devHubs });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this._postMessage({
+        command: "devHubsError",
+        error: errorMessage,
+      });
+      vscode.window.showErrorMessage(
+        `Failed to fetch DevHub information: ${errorMessage}`
+      );
+    }
+  }
+
+  private async _sendScratchOrgs(devHubUsername: string): Promise<void> {
+    try {
+      this._postMessage({
+        command: "scratchOrgsLoading",
+        devHubUsername,
+      });
+      const scratchOrgs: ScratchOrgInfo[] =
+        await salesforceService.getAllScratchOrgsForDevHub(devHubUsername);
+      this._postMessage({
+        command: "scratchOrgsData",
+        devHubUsername,
+        scratchOrgs,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this._postMessage({
+        command: "scratchOrgsError",
+        devHubUsername,
+        error: errorMessage,
+      });
+      vscode.window.showErrorMessage(
+        `Failed to fetch scratch orgs: ${errorMessage}`
+      );
+    }
+  }
+
+  private async _deleteScratchOrgs(
+    scratchOrgs: Array<{ id: string; devHubUsername: string }>
+  ): Promise<void> {
+    try {
+      const confirm = await vscode.window.showWarningMessage(
+        `Are you sure you want to delete ${scratchOrgs.length} scratch org(s)?`,
+        { modal: true },
+        "Delete"
+      );
+
+      if (confirm !== "Delete") {
+        this._postMessage({
+          command: "deleteCancelled",
+        });
+        return;
+      }
+
+      this._postMessage({ command: "deleteStarted" });
+      const result = await salesforceService.deleteScratchOrgs(scratchOrgs);
+
+      if (result.success.length > 0) {
+        vscode.window.showInformationMessage(
+          `Successfully deleted ${result.success.length} scratch org(s)`
+        );
+      }
+
+      if (result.failed.length > 0) {
+        vscode.window.showWarningMessage(
+          `Failed to delete ${result.failed.length} scratch org(s)`
+        );
+      }
+
+      this._postMessage({
+        command: "deleteCompleted",
+        success: result.success,
+        failed: result.failed,
+      });
+
+      // Refresh the DevHub data
+      if (scratchOrgs.length > 0) {
+        await this._refreshDevHub(scratchOrgs[0].devHubUsername);
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this._postMessage({
+        command: "deleteError",
+        error: errorMessage,
+      });
+      vscode.window.showErrorMessage(
+        `Failed to delete scratch orgs: ${errorMessage}`
+      );
+    }
+  }
+
+  private async _refreshDevHub(devHubUsername: string): Promise<void> {
+    try {
+      const limits = await salesforceService.getDevHubLimits(devHubUsername);
+      this._postMessage({
+        command: "devHubRefreshed",
+        devHubUsername,
+        limits,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `Failed to refresh DevHub ${devHubUsername}:`,
+        errorMessage
+      );
+    }
+  }
+
+  private _postMessage(message: object): void {
+    this._panel.webview.postMessage(message);
   }
 
   public dispose() {
@@ -193,10 +345,6 @@ export class DashboardPanel {
       const assetsUri = webview.asWebviewUri(
         vscode.Uri.joinPath(webviewOutPath, "assets")
       );
-      const baseUri = webview.asWebviewUri(webviewOutPath);
-      const viteSvgUri = webview.asWebviewUri(
-        vscode.Uri.joinPath(webviewOutPath, "vite.svg")
-      );
 
       // Generate a single nonce for this webview
       const nonce = getNonce();
@@ -216,12 +364,6 @@ export class DashboardPanel {
               continue;
             }
             let jsContent = fs.readFileSync(jsPath, "utf8");
-
-            // Replace /vite.svg string literals in JavaScript
-            jsContent = jsContent.replace(
-              /\/vite\.svg/g,
-              viteSvgUri.toString()
-            );
 
             // Replace /assets/ paths in JavaScript
             jsContent = jsContent.replace(/\/assets\//g, `${assetsUri}/`);
@@ -265,7 +407,6 @@ export class DashboardPanel {
       // Replace asset paths in HTML (after processing JS files)
       html = html.replace(/href="\/assets\//g, `href="${assetsUri}/`);
       html = html.replace(/src="\/assets\//g, `src="${assetsUri}/`);
-      html = html.replace(/href="\/vite\.svg"/g, `href="${viteSvgUri}"`);
 
       // Add CSP
       const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-inline'; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource};">`;

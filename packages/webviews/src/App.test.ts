@@ -1,101 +1,77 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
+
+// Mock the VS Code API before importing App
+vi.mock("./lib/vscode", () => ({
+  postMessage: vi.fn(),
+  getVsCodeApi: () => ({
+    postMessage: vi.fn(),
+    getState: () => null,
+    setState: () => {},
+  }),
+}));
+
+// Import after mocking
 import App from "./App.svelte";
+import { postMessage } from "./lib/vscode";
 
 describe("App Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("should render the main heading", () => {
     render(App);
     const heading = screen.getByRole("heading", { level: 1 });
-    expect(heading.textContent).toBe("Vite + Svelte");
+    expect(heading.textContent).toBe("Salesforce Lens");
   });
 
-  it("should render the Vite logo with link", () => {
+  it("should render the tagline", () => {
     render(App);
-    const viteLink = screen.getByRole("link", { name: /vite logo/i });
-    expect(viteLink).toBeTruthy();
-    expect(viteLink.getAttribute("href")).toBe("https://vite.dev");
-    expect(viteLink.getAttribute("target")).toBe("_blank");
+    const tagline = screen.getByText(/manage your scratch org ecosystem/i);
+    expect(tagline).toBeTruthy();
   });
 
-  it("should render the Svelte logo with link", () => {
+  it("should render the refresh button", () => {
     render(App);
-    const svelteLink = screen.getByRole("link", { name: /svelte logo/i });
-    expect(svelteLink).toBeTruthy();
-    expect(svelteLink.getAttribute("href")).toBe("https://svelte.dev");
-    expect(svelteLink.getAttribute("target")).toBe("_blank");
+    const refreshButton = screen.getByRole("button", { name: /refresh/i });
+    expect(refreshButton).toBeTruthy();
   });
 
-  it("should render the Counter component", () => {
+  it("should show loading state initially", () => {
     render(App);
-    const counterButton = screen.getByRole("button", { name: /count is/i });
-    expect(counterButton).toBeTruthy();
+    const loadingText = screen.getByText(/loading devhubs/i);
+    expect(loadingText).toBeTruthy();
   });
 
-  it("should render the SvelteKit link", () => {
+  it("should call postMessage to get DevHubs on mount", () => {
     render(App);
-    const svelteKitLink = screen.getByRole("link", { name: /sveltekit/i });
-    expect(svelteKitLink).toBeTruthy();
-    expect(svelteKitLink.getAttribute("href")).toBe(
-      "https://github.com/sveltejs/kit#readme"
-    );
-  });
-
-  it("should render the help text", () => {
-    render(App);
-    const helpText = screen.getByText(/click on the vite and svelte logos/i);
-    expect(helpText).toBeTruthy();
-  });
-
-  it("should have proper accessibility - logos have alt text", () => {
-    render(App);
-    const viteImg = screen.getByAltText("Vite Logo");
-    const svelteImg = screen.getByAltText("Svelte Logo");
-    expect(viteImg).toBeTruthy();
-    expect(svelteImg).toBeTruthy();
-  });
-
-  it("should have logo images with correct classes", () => {
-    render(App);
-    const viteImg = screen.getByAltText("Vite Logo");
-    const svelteImg = screen.getByAltText("Svelte Logo");
-
-    expect(viteImg.classList.contains("logo")).toBe(true);
-    expect(svelteImg.classList.contains("logo")).toBe(true);
-    expect(svelteImg.classList.contains("svelte")).toBe(true);
+    expect(postMessage).toHaveBeenCalledWith({ command: "getDevHubs" });
   });
 });
 
 describe("App Component Structure", () => {
-  it("should have a main element", () => {
+  it("should have the app container", () => {
     render(App);
-    const main = document.querySelector("main");
-    expect(main).toBeTruthy();
+    const app = document.querySelector(".app");
+    expect(app).toBeTruthy();
   });
 
-  it("should have a card div containing the counter", () => {
+  it("should have a dashboard header", () => {
     render(App);
-    const card = document.querySelector(".card");
-    expect(card).toBeTruthy();
-
-    // Counter should be inside the card
-    const button = card?.querySelector("button");
-    expect(button).toBeTruthy();
-    expect(button?.textContent).toContain("count is");
+    const header = document.querySelector(".dashboard-header");
+    expect(header).toBeTruthy();
   });
 
-  it("should have proper external link security", () => {
+  it("should have a logo with SVG icon", () => {
     render(App);
-    const externalLinks = screen.getAllByRole("link");
-
-    externalLinks.forEach((link) => {
-      if (link.getAttribute("target") === "_blank") {
-        expect(link.getAttribute("rel")).toContain("noreferrer");
-      }
-    });
+    const logo = document.querySelector(".logo");
+    expect(logo).toBeTruthy();
+    const svg = logo?.querySelector("svg");
+    expect(svg).toBeTruthy();
   });
 });
-
