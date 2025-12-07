@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "scratch-org-lens.dashboardView";
+  public static readonly viewType = "salesforce-lens.dashboardView";
 
   private _view?: vscode.WebviewView;
 
@@ -27,7 +27,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       switch (message.command) {
         case "openDashboard":
           console.log("Executing dashboard command from sidebar");
-          vscode.commands.executeCommand("scratch-org-lens.dashboard").then(
+          vscode.commands.executeCommand("salesforce-lens.dashboard").then(
             () => {
               console.log("Dashboard command executed successfully");
             },
@@ -54,7 +54,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 	<meta charset="UTF-8">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Scratch Org Lens</title>
+	<title>Salesforce Lens</title>
 	<style>
 		body {
 			padding: 10px;
@@ -84,7 +84,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 	</style>
 </head>
 <body>
-	<h3>Scratch Org Lens</h3>
+	<h3>Salesforce Lens</h3>
 	<p>Manage your Salesforce Scratch Orgs</p>
 	<button class="open-btn" id="openDashboardBtn">Open Dashboard</button>
 	<script nonce="${nonce}">
@@ -107,4 +107,3 @@ function getNonce() {
   }
   return text;
 }
-

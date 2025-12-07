@@ -9,7 +9,7 @@ suite("Extension Test Suite", () => {
   suite("Extension Activation", () => {
     test("Extension should be present", () => {
       const extension = vscode.extensions.getExtension(
-        "undefined_publisher.scratch-org-lens"
+        "undefined_publisher.salesforce-lens"
       );
       // Extension may not be found if not packaged, so we test the module directly
       assert.ok(true, "Extension module loaded");
@@ -19,7 +19,7 @@ suite("Extension Test Suite", () => {
       // Ensure extension is activated by executing the command first
       // This will trigger activation if not already active
       try {
-        await vscode.commands.executeCommand("scratch-org-lens.dashboard");
+        await vscode.commands.executeCommand("salesforce-lens.dashboard");
         // Give time for activation to complete
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch {
@@ -28,7 +28,7 @@ suite("Extension Test Suite", () => {
 
       const commands = await vscode.commands.getCommands(true);
       assert.ok(
-        commands.includes("scratch-org-lens.dashboard"),
+        commands.includes("salesforce-lens.dashboard"),
         "Dashboard command should be registered"
       );
     });
@@ -37,7 +37,7 @@ suite("Extension Test Suite", () => {
   suite("DashboardPanel", () => {
     test("Should create panel when command is executed", async () => {
       // Execute the dashboard command
-      await vscode.commands.executeCommand("scratch-org-lens.dashboard");
+      await vscode.commands.executeCommand("salesforce-lens.dashboard");
 
       // Give time for the panel to be created
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -48,9 +48,9 @@ suite("Extension Test Suite", () => {
 
     test("Should reveal existing panel instead of creating new one", async () => {
       // Execute the command twice
-      await vscode.commands.executeCommand("scratch-org-lens.dashboard");
+      await vscode.commands.executeCommand("salesforce-lens.dashboard");
       await new Promise((resolve) => setTimeout(resolve, 200));
-      await vscode.commands.executeCommand("scratch-org-lens.dashboard");
+      await vscode.commands.executeCommand("salesforce-lens.dashboard");
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Should not throw any errors
@@ -65,7 +65,7 @@ suite("SidebarViewProvider Test Suite", () => {
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     assert.strictEqual(
       SidebarViewProvider.viewType,
-      "scratch-org-lens.dashboardView",
+      "salesforce-lens.dashboardView",
       "viewType should match the expected value"
     );
   });
@@ -156,10 +156,10 @@ suite("HTML Generation", () => {
     // Check for required elements
     assert.ok(html.includes("<!DOCTYPE html>"), "Should have DOCTYPE");
     assert.ok(
-      html.includes("<title>Scratch Org Lens</title>"),
+      html.includes("<title>Salesforce Lens</title>"),
       "Should have title"
     );
-    assert.ok(html.includes("Scratch Org Lens"), "Should have heading");
+    assert.ok(html.includes("Salesforce Lens"), "Should have heading");
     assert.ok(
       html.includes("Open Dashboard"),
       "Should have Open Dashboard button"

@@ -1,4 +1,4 @@
-# Scratch Org Lens
+# Salesforce Lens
 
 A VS Code extension for managing Salesforce Scratch Orgs.
 
@@ -7,7 +7,7 @@ A VS Code extension for managing Salesforce Scratch Orgs.
 This is a pnpm monorepo with the following structure:
 
 ```
-scratch-org-lens/
+salesforce-lens/
 ├── packages/
 │   ├── extension/     # VS Code extension
 │   └── webviews/      # Svelte webview UI components
@@ -88,17 +88,20 @@ The `DashboardPanel` automatically detects which location exists and uses the ap
 ### Packaging Steps
 
 1. **Build webviews:**
+
    ```bash
    pnpm build:webviews
    ```
 
 2. **Package the extension:**
+
    ```bash
    cd packages/extension
    pnpm package
    ```
 
    This will:
+
    - Compile TypeScript (`pnpm compile`)
    - Copy webviews to `packages/extension/webviews/out` (`pnpm copy-webviews`)
    - Create `.vsix` file (`vsce package`)
@@ -136,6 +139,7 @@ pnpm test:extension
 ```
 
 This will:
+
 1. Compile the extension TypeScript code
 2. Download a VS Code instance (if needed)
 3. Run the test suite in a VS Code Extension Host
@@ -145,6 +149,7 @@ This will:
 #### Option 1: Using VS Code Debugger (Recommended)
 
 1. **Build everything first:**
+
    ```bash
    pnpm build:webviews
    pnpm compile
@@ -155,6 +160,7 @@ This will:
 3. **Select "Run Extension"** from the dropdown and press F5
 
    This will:
+
    - Build webviews and compile extension (via pre-launch task)
    - Launch a new VS Code window with your extension loaded
    - Enable breakpoints and debugging
@@ -167,12 +173,14 @@ This will:
 #### Option 2: Using Command Line
 
 1. **Build everything:**
+
    ```bash
    pnpm build:webviews
    pnpm compile
    ```
 
 2. **Open VS Code from the extension directory:**
+
    ```bash
    code packages/extension
    ```
@@ -182,14 +190,16 @@ This will:
 #### Option 3: Package and Install
 
 1. **Build and package the extension** (if you have `vsce` installed):
+
    ```bash
    # From the root directory
    pnpm build:webviews
    cd packages/extension
    pnpm package
    ```
-   
+
    Or manually:
+
    ```bash
    pnpm build:webviews
    cd packages/extension
@@ -205,6 +215,7 @@ This will:
    - Select the generated `.vsix` file
 
 **Note:** The `package` script automatically:
+
 - Compiles the extension TypeScript
 - Copies webviews from `packages/webviews/out` to `packages/extension/webviews/out`
 - Packages everything into a `.vsix` file

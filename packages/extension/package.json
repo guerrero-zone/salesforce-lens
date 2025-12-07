@@ -1,12 +1,12 @@
 {
-  "name": "scratch-org-lens",
-  "displayName": "Scratch Org Lens",
+  "name": "salesforce-lens",
+  "displayName": "Salesforce Lens",
   "description": "Salesforce Scratch Org admin tool",
   "version": "0.0.1",
   "publisher": "amguerrero",
   "repository": {
     "type": "git",
-    "url": "https://github.com/guerrero-zone/scratch-org-lens.git"
+    "url": "https://github.com/guerrero-zone/salesforce-lens.git"
   },
   "license": "GPL v3",
   "engines": {
@@ -20,25 +20,25 @@
   "contributes": {
     "commands": [
       {
-        "command": "scratch-org-lens.dashboard",
-        "title": "Scratch Org Lens: Dashboard",
+        "command": "salesforce-lens.dashboard",
+        "title": "Salesforce Lens: Dashboard",
         "icon": "$(dashboard)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "scratch-org-lens",
-          "title": "Scratch Org Lens",
+          "id": "salesforce-lens",
+          "title": "Salesforce Lens",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "views": {
-      "scratch-org-lens": [
+      "salesforce-lens": [
         {
           "type": "webview",
-          "id": "scratch-org-lens.dashboardView",
+          "id": "salesforce-lens.dashboardView",
           "name": "Dashboard",
           "visibility": "visible"
         }
@@ -47,8 +47,8 @@
     "menus": {
       "view/title": [
         {
-          "command": "scratch-org-lens.dashboard",
-          "when": "view == scratch-org-lens.dashboardView",
+          "command": "salesforce-lens.dashboard",
+          "when": "view == salesforce-lens.dashboardView",
           "group": "navigation"
         }
       ]

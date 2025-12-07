@@ -5,7 +5,7 @@
       "label": "build:webviews",
       "type": "shell",
       "command": "pnpm",
-      "args": ["--filter", "@scratch-org-lens/webviews", "build"],
+      "args": ["--filter", "@salesforce-lens/webviews", "build"],
       "problemMatcher": [],
       "group": {
         "kind": "build",
@@ -16,7 +16,7 @@
       "label": "compile:extension",
       "type": "shell",
       "command": "pnpm",
-      "args": ["--filter", "@scratch-org-lens/extension", "compile"],
+      "args": ["--filter", "@salesforce-lens/extension", "compile"],
       "problemMatcher": "$tsc",
       "group": {
         "kind": "build",
@@ -25,10 +25,7 @@
     },
     {
       "label": "build:all",
-      "dependsOn": [
-        "build:webviews",
-        "compile:extension"
-      ],
+      "dependsOn": ["build:webviews", "compile:extension"],
       "dependsOrder": "sequence",
       "problemMatcher": [],
       "group": {

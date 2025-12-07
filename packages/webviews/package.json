@@ -1,5 +1,5 @@
 {
-  "name": "@scratch-org-lens/webviews",
+  "name": "@salesforce-lens/webviews",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -26,4 +26,3 @@
     "vitest": "^4.0.15"
   }
 }
-

@@ -56,7 +56,7 @@ export class DashboardPanel {
 
       const panel = vscode.window.createWebviewPanel(
         DashboardPanel.viewType,
-        "Scratch Org Lens",
+        "Salesforce Lens",
         column || vscode.ViewColumn.One,
         {
           enableScripts: true,

@@ -1,18 +1,18 @@
 {
-  "name": "scratch-org-lens-monorepo",
+  "name": "salesforce-lens-monorepo",
   "private": true,
   "version": "0.0.1",
-  "description": "Scratch Org Lens monorepo",
+  "description": "Salesforce Lens monorepo",
   "scripts": {
     "build": "pnpm -r build",
-    "compile": "pnpm --filter scratch-org-lens compile",
-    "watch": "pnpm --filter scratch-org-lens watch",
+    "compile": "pnpm --filter salesforce-lens compile",
+    "watch": "pnpm --filter salesforce-lens watch",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:extension": "pnpm --filter scratch-org-lens test",
-    "test:webviews": "pnpm --filter @scratch-org-lens/webviews test",
-    "build:webviews": "pnpm --filter @scratch-org-lens/webviews build",
-    "dev:webviews": "pnpm --filter @scratch-org-lens/webviews dev"
+    "test:extension": "pnpm --filter salesforce-lens test",
+    "test:webviews": "pnpm --filter @salesforce-lens/webviews test",
+    "build:webviews": "pnpm --filter @salesforce-lens/webviews build",
+    "dev:webviews": "pnpm --filter @salesforce-lens/webviews dev"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
