@@ -67,11 +67,11 @@ describe("App Component Structure", () => {
     expect(header).toBeTruthy();
   });
 
-  it("should have a logo with SVG icon", () => {
+  it("should have a logo with codicon", () => {
     render(App);
     const logo = document.querySelector(".logo");
     expect(logo).toBeTruthy();
-    const svg = logo?.querySelector("svg");
-    expect(svg).toBeTruthy();
+    const icon = logo?.querySelector(".codicon");
+    expect(icon).toBeTruthy();
   });
 });

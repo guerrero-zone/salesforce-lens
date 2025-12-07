@@ -190,9 +190,7 @@
 <div class="scratch-org-list">
   <header class="list-header">
     <button class="back-button" onclick={onback} title="Back to Dashboard">
-      <svg viewBox="0 0 16 16" fill="currentColor">
-        <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-      </svg>
+      <span class="codicon codicon-arrow-left"></span>
       Back
     </button>
 
@@ -202,19 +200,14 @@
     </div>
 
     <button class="refresh-button" onclick={refreshList} disabled={loading} title="Refresh scratch orgs">
-      <svg viewBox="0 0 16 16" fill="currentColor" class:spinning={loading}>
-        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-      </svg>
+      <span class="codicon codicon-refresh" class:spinning={loading}></span>
       Refresh
     </button>
   </header>
 
   <div class="controls">
     <div class="search-box">
-      <svg class="search-icon" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-      </svg>
+      <span class="codicon codicon-search search-icon"></span>
       <input
         type="text"
         placeholder="Search by username, alias, creator..."
@@ -256,10 +249,7 @@
           <span class="spinner"></span>
           Deleting...
         {:else}
-          <svg viewBox="0 0 16 16" fill="currentColor">
-            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-          </svg>
+          <span class="codicon codicon-trash"></span>
           Delete ({selectedOrgs.size})
         {/if}
       </button>
@@ -273,9 +263,7 @@
     </div>
   {:else if error}
     <div class="error-state">
-      <svg class="error-icon" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-      </svg>
+      <span class="codicon codicon-warning error-icon"></span>
       <h3>Failed to load scratch orgs</h3>
       <p>{error}</p>
       <button class="retry-button" onclick={loadScratchOrgs}>
@@ -284,9 +272,7 @@
     </div>
   {:else if filteredOrgs.length === 0}
     <div class="empty-state">
-      <svg class="empty-icon" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M12 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zM5 4h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1 0-1zm-.5 2.5A.5.5 0 0 1 5 6h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zM5 8h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1 0-1zm0 2h3a.5.5 0 0 1 0 1H5a.5.5 0 0 1 0-1z"/>
-      </svg>
+      <span class="codicon codicon-inbox empty-icon"></span>
       <h3>No scratch orgs found</h3>
       <p>
         {#if searchQuery || filterStatus !== "all"}
@@ -342,7 +328,7 @@
                 <span class="edition-badge">{org.edition || "N/A"}</span>
               </td>
               <td>
-                <span class="status-pill" class:active={org.status === "Active"} class:expired={org.isExpired}>
+                <span class="status-pill" class:active={org.status === "Active"} class:expired={org.isExpired} class:error={org.status === "Error"}>
                   {org.isExpired ? "Expired" : org.status}
                 </span>
               </td>
@@ -408,9 +394,8 @@
     background: var(--vscode-list-hoverBackground);
   }
 
-  .back-button svg {
-    width: 14px;
-    height: 14px;
+  .back-button .codicon {
+    font-size: 14px;
   }
 
   .header-info {
@@ -452,12 +437,11 @@
     cursor: not-allowed;
   }
 
-  .refresh-button svg {
-    width: 14px;
-    height: 14px;
+  .refresh-button .codicon {
+    font-size: 14px;
   }
 
-  .refresh-button svg.spinning {
+  .refresh-button .codicon.spinning {
     animation: spin 1s linear infinite;
   }
 
@@ -489,8 +473,7 @@
     left: 8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
+    font-size: 14px;
     color: var(--vscode-input-placeholderForeground);
   }
 
@@ -569,9 +552,8 @@
     cursor: not-allowed;
   }
 
-  .delete-button svg {
-    width: 14px;
-    height: 14px;
+  .delete-button .codicon {
+    font-size: 14px;
   }
 
   .spinner {
@@ -607,8 +589,7 @@
 
   .error-icon,
   .empty-icon {
-    width: 48px;
-    height: 48px;
+    font-size: 48px;
     margin-bottom: 12px;
     color: var(--vscode-descriptionForeground);
   }
@@ -755,6 +736,11 @@
   .status-pill.expired {
     background: var(--vscode-errorForeground, #f14c4c);
     color: white;
+  }
+
+  .status-pill.error {
+    background: var(--vscode-editorWarning-foreground, #cca700);
+    color: black;
   }
 
   .date-cell {

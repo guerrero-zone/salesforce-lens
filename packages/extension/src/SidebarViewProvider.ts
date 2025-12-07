@@ -68,7 +68,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     try {
       this._view.webview.postMessage({ command: "devHubsLoading" });
-      const devHubs: OrgInfo[] = await salesforceService.getDevHubsList();
+      const devHubs: OrgInfo[] =
+        await salesforceService.getDevHubsListWithEdition();
       this._view.webview.postMessage({ command: "devHubsData", devHubs });
     } catch (error) {
       const errorMessage =
@@ -83,12 +84,24 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private _getHtmlForWebview(webview: vscode.Webview) {
     const nonce = getNonce();
 
+    // Get the codicon stylesheet URI
+    const codiconsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "node_modules",
+        "@vscode/codicons",
+        "dist",
+        "codicon.css"
+      )
+    );
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="${codiconsUri}" rel="stylesheet" />
   <title>Salesforce Lens</title>
   <style>
     body {
@@ -166,7 +179,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       color: var(--vscode-foreground);
     }
     
-    .refresh-btn.spinning svg {
+    .refresh-btn.spinning .codicon {
       animation: spin 1s linear infinite;
     }
     
@@ -194,10 +207,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
     
     .devhub-icon {
-      width: 16px;
-      height: 16px;
+      font-size: 16px;
       margin-right: 8px;
       flex-shrink: 0;
+      color: var(--vscode-foreground);
     }
     
     .devhub-info {
@@ -220,6 +233,12 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       overflow: hidden;
       text-overflow: ellipsis;
       font-family: var(--vscode-editor-font-family);
+    }
+    
+    .devhub-edition {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+      margin-top: 2px;
     }
     
     .devhub-badge {
@@ -278,8 +297,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
     
     .chevron {
-      width: 12px;
-      height: 12px;
+      font-size: 12px;
       color: var(--vscode-descriptionForeground);
       flex-shrink: 0;
     }
@@ -293,9 +311,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   
   <div class="actions">
     <button class="open-btn" id="openDashboardBtn">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M2.5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2h-11zm5 5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1zm-2.5.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm2.5 2.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1zm-2.5.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm2.5 2.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1zm-2.5.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
-      </svg>
+      <span class="codicon codicon-dashboard"></span>
       Open Dashboard
     </button>
   </div>
@@ -303,10 +319,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   <div class="section-title">
     <span>DevHub Organizations</span>
     <button class="refresh-btn" id="refreshBtn" title="Refresh">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-      </svg>
+      <span class="codicon codicon-refresh"></span>
     </button>
   </div>
   
@@ -346,20 +359,18 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                           hub.orgType === 'Sandbox' ? 'badge-sandbox' : 'badge-unknown';
         const badgeText = hub.orgType === 'Production' ? 'PROD' : 
                          hub.orgType === 'Sandbox' ? 'SBX' : 'ORG';
+        const editionText = hub.edition || '';
         
         html += \`
           <li class="devhub-item" data-username="\${hub.username}" data-aliases='\${JSON.stringify(hub.aliases || [])}' data-orgtype="\${hub.orgType}">
-            <svg class="devhub-icon" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5zM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5z"/>
-            </svg>
+            <span class="devhub-icon codicon codicon-home"></span>
             <div class="devhub-info">
               <div class="devhub-name">\${displayName}</div>
               <div class="devhub-username">\${hub.username}</div>
+              \${editionText ? '<div class="devhub-edition">' + editionText + '</div>' : ''}
             </div>
             <span class="devhub-badge \${badgeClass}">\${badgeText}</span>
-            <svg class="chevron" viewBox="0 0 16 16" fill="currentColor">
-              <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-            </svg>
+            <span class="chevron codicon codicon-chevron-right"></span>
           </li>
         \`;
       }

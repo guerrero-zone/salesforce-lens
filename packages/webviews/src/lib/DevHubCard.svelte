@@ -55,9 +55,7 @@
 <button class="devhub-card" {onclick}>
   <div class="card-header">
     <div class="org-icon">
-      <svg viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5zM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5z"/>
-      </svg>
+      <span class="codicon codicon-home"></span>
     </div>
     <div class="org-info">
       <div class="org-name-row">
@@ -74,18 +72,14 @@
       {/if}
     </div>
     <div class="chevron">
-      <svg viewBox="0 0 16 16" fill="currentColor">
-        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-      </svg>
+      <span class="codicon codicon-chevron-right"></span>
     </div>
   </div>
 
   <div class="card-stats">
     <div class="stat-row">
       <div class="stat-label">
-        <svg class="stat-icon" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M11.251.068a.5.5 0 0 1 .227.58L9.677 6.5H13a.5.5 0 0 1 .364.843l-8 8.5a.5.5 0 0 1-.842-.49L6.323 9.5H3a.5.5 0 0 1-.364-.843l8-8.5a.5.5 0 0 1 .615-.09z"/>
-        </svg>
+        <span class="codicon codicon-zap stat-icon"></span>
         Active Scratch Orgs
       </div>
       <div class="stat-value">
@@ -111,9 +105,7 @@
 
     <div class="stat-row">
       <div class="stat-label">
-        <svg class="stat-icon" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
-        </svg>
+        <span class="codicon codicon-calendar stat-icon"></span>
         Daily Created
       </div>
       <div class="stat-value">
@@ -185,9 +177,8 @@
     flex-shrink: 0;
   }
 
-  .org-icon svg {
-    width: 20px;
-    height: 20px;
+  .org-icon .codicon {
+    font-size: 20px;
     color: var(--vscode-button-foreground);
   }
 
@@ -263,8 +254,7 @@
   }
 
   .chevron {
-    width: 16px;
-    height: 16px;
+    font-size: 16px;
     color: var(--vscode-descriptionForeground);
     transition: transform 0.15s ease;
     flex-shrink: 0;
@@ -274,11 +264,6 @@
   .devhub-card:hover .chevron {
     transform: translateX(2px);
     color: var(--vscode-foreground);
-  }
-
-  .chevron svg {
-    width: 100%;
-    height: 100%;
   }
 
   .card-stats {
@@ -302,8 +287,7 @@
   }
 
   .stat-icon {
-    width: 12px;
-    height: 12px;
+    font-size: 12px;
     opacity: 0.8;
   }
 

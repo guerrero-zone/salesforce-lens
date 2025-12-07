@@ -13,6 +13,10 @@ importers:
         version: 5.9.3
 
   packages/extension:
+    dependencies:
+      '@vscode/codicons':
+        specifier: ^0.0.36
+        version: 0.0.36
     devDependencies:
       '@types/glob':
         specifier: ^8.1.0
@@ -49,6 +53,10 @@ importers:
         version: 5.9.3
 
   packages/webviews:
+    dependencies:
+      '@vscode/codicons':
+        specifier: ^0.0.43
+        version: 0.0.43
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^6.2.1
@@ -635,6 +643,12 @@ packages:
 
   '@vitest/utils@4.0.15':
     resolution: {integrity: sha512-HXjPW2w5dxhTD0dLwtYHDnelK3j8sR8cWIaLxr22evTyY6q8pRCjZSmhRWVjBaOVXChQd6AwMzi9pucorXCPZA==}
+
+  '@vscode/codicons@0.0.36':
+    resolution: {integrity: sha512-wsNOvNMMJ2BY8rC2N2MNBG7yOowV3ov8KlvUE/AiVUlHKTfWsw3OgAOQduX7h0Un6GssKD3aoTVH+TF3DSQwKQ==}
+
+  '@vscode/codicons@0.0.43':
+    resolution: {integrity: sha512-8sf8WOBoZkyUi8ogCm5ycHJJGhwOEG3E9b64+JIx+m6bCExdkc30VwCwr94cXUU1opmRD0CTCWLcN46I8WLJIg==}
 
   '@vscode/test-electron@2.5.2':
     resolution: {integrity: sha512-8ukpxv4wYe0iWMRQU18jhzJOHkeGKbnw7xWRX3Zw1WJA4cEKbHcmmLPdPrPtL6rhDcrlCZN+xKRpv09n4gRHYg==}
@@ -2188,6 +2202,10 @@ snapshots:
     dependencies:
       '@vitest/pretty-format': 4.0.15
       tinyrainbow: 3.0.3
+
+  '@vscode/codicons@0.0.36': {}
+
+  '@vscode/codicons@0.0.43': {}
 
   '@vscode/test-electron@2.5.2':
     dependencies:

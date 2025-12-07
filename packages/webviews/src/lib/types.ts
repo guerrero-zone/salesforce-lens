@@ -15,6 +15,7 @@ export interface DevHubInfo {
   isDevHub: boolean;
   connectedStatus: string;
   orgType: OrgType;
+  edition?: string;
   limits: ScratchOrgLimits;
 }
 

@@ -438,18 +438,22 @@ export class DashboardPanel {
             }
             let jsContent = fs.readFileSync(jsPath, "utf8");
 
-            // Replace /assets/ paths in JavaScript
-            jsContent = jsContent.replace(/\/assets\//g, `${assetsUri}/`);
+            // Replace asset paths in JavaScript (both absolute and relative)
+            jsContent = jsContent.replace(/\.?\/assets\//g, `${assetsUri}/`);
 
-            // Replace the script src with inline script (match the original /assets/ path in HTML)
+            // Replace the script src with inline script
             // Match script tag with src pointing to this JS file, handling any attributes
             const escapedJsFile = jsFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-            // Try multiple regex patterns to match the script tag
+            // Try multiple regex patterns to match the script tag (both absolute and relative paths)
             const patterns = [
-              // Pattern 1: With whitespace before closing tag
+              // Pattern 1: Relative path with whitespace
+              `<script[^>]*src=["']\\./assets/${escapedJsFile}["'][^>]*>\\s*</script>`,
+              // Pattern 2: Relative path without whitespace
+              `<script[^>]*src=["']\\./assets/${escapedJsFile}["'][^>]*></script>`,
+              // Pattern 3: Absolute path with whitespace
               `<script[^>]*src=["']/assets/${escapedJsFile}["'][^>]*>\\s*</script>`,
-              // Pattern 2: Without whitespace
+              // Pattern 4: Absolute path without whitespace
               `<script[^>]*src=["']/assets/${escapedJsFile}["'][^>]*></script>`,
             ];
 
@@ -478,8 +482,37 @@ export class DashboardPanel {
       }
 
       // Replace asset paths in HTML (after processing JS files)
-      html = html.replace(/href="\/assets\//g, `href="${assetsUri}/`);
-      html = html.replace(/src="\/assets\//g, `src="${assetsUri}/`);
+      // Handle both absolute (/assets/) and relative (./assets/) paths
+      html = html.replace(/href="\.?\/assets\//g, `href="${assetsUri}/`);
+      html = html.replace(/src="\.?\/assets\//g, `src="${assetsUri}/`);
+
+      // Also process CSS files to replace font URLs
+      const cssFiles = fs
+        .readdirSync(assetsDir)
+        .filter((file) => file.endsWith(".css"));
+      for (const cssFile of cssFiles) {
+        try {
+          const cssPath = path.join(assetsDir, cssFile);
+          let cssContent = fs.readFileSync(cssPath, "utf8");
+
+          // Replace font URLs in CSS (handles both relative and absolute paths)
+          // The regex must handle optional query strings after the extension (e.g., ?38dcd33...)
+          cssContent = cssContent.replace(
+            /url\(["']?\.?\/?(assets\/)?([^"'?)]+\.(ttf|woff|woff2|eot))(\?[^"')]*)?["']?\)/g,
+            `url("${assetsUri}/$2")`
+          );
+
+          // Replace the CSS link with inline style (for font loading to work)
+          const escapedCssFile = cssFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const cssPattern = new RegExp(
+            `<link[^>]*href=["'][^"']*${escapedCssFile}["'][^>]*>`,
+            "g"
+          );
+          html = html.replace(cssPattern, `<style>${cssContent}</style>`);
+        } catch (error) {
+          console.error(`Error processing CSS file ${cssFile}:`, error);
+        }
+      }
 
       // Add CSP
       const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-inline'; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource};">`;

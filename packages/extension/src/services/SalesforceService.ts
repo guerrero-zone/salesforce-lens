@@ -13,6 +13,7 @@ export interface OrgInfo {
   isDevHub: boolean;
   connectedStatus: string;
   orgType: OrgType;
+  edition?: string;
 }
 
 /**
@@ -132,6 +133,14 @@ interface SfScratchOrgListResult {
   };
 }
 
+interface SfOrganizationQueryResult {
+  result: {
+    records: Array<{
+      OrganizationType: string;
+    }>;
+  };
+}
+
 export class SalesforceService {
   private execOptions: ExecOptions = {
     maxBuffer: 1024 * 1024 * 10, // 10MB buffer
@@ -246,11 +255,51 @@ export class SalesforceService {
   }
 
   /**
+   * Get the edition of an org by querying the Organization object
+   */
+  async getOrgEdition(username: string): Promise<string | undefined> {
+    try {
+      const query = "SELECT OrganizationType FROM Organization LIMIT 1";
+      const result = await this.execSfCommand<SfOrganizationQueryResult>(
+        `sf data query --query "${query}" --target-org "${username}" --json`
+      );
+
+      if (result.result.records.length > 0) {
+        return result.result.records[0].OrganizationType;
+      }
+      return undefined;
+    } catch {
+      console.warn(`Could not fetch edition for org: ${username}`);
+      return undefined;
+    }
+  }
+
+  /**
    * Get just the list of DevHubs (without limits) - fast operation for sidebar
    */
   async getDevHubsList(): Promise<OrgInfo[]> {
     const { devHubs } = await this.getAuthorizedOrgs();
     return devHubs;
+  }
+
+  /**
+   * Get just the list of DevHubs with their editions - for sidebar
+   */
+  async getDevHubsListWithEdition(): Promise<OrgInfo[]> {
+    const { devHubs } = await this.getAuthorizedOrgs();
+
+    // Fetch editions in parallel
+    const devHubsWithEdition = await Promise.all(
+      devHubs.map(async (devHub) => {
+        const edition = await this.getOrgEdition(devHub.username);
+        return {
+          ...devHub,
+          edition,
+        };
+      })
+    );
+
+    return devHubsWithEdition;
   }
 
   /**

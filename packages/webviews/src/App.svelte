@@ -107,18 +107,13 @@
     <header class="dashboard-header">
       <div class="header-content">
         <div class="logo">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14C0 17.31 2.69 20 6 20H19C21.76 20 24 17.76 24 15C24 12.36 21.95 10.22 19.35 10.04Z"/>
-          </svg>
+          <span class="codicon codicon-cloud"></span>
           <h1>Salesforce Lens</h1>
         </div>
         <p class="tagline">Manage your Scratch Org ecosystem</p>
       </div>
       <button class="refresh-button" onclick={loadDevHubs} disabled={loading} title="Refresh DevHubs">
-        <svg viewBox="0 0 16 16" fill="currentColor" class:spinning={loading}>
-          <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-          <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-        </svg>
+        <span class="codicon codicon-refresh" class:spinning={loading}></span>
         Refresh
       </button>
     </header>
@@ -132,9 +127,7 @@
         </div>
       {:else if error}
         <div class="error-container">
-          <svg class="error-icon" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-          </svg>
+          <span class="codicon codicon-warning error-icon"></span>
           <h2>Failed to Load DevHubs</h2>
           <p>{error}</p>
           <button class="retry-button" onclick={loadDevHubs}>
@@ -143,10 +136,7 @@
         </div>
       {:else if devHubs.length === 0}
         <div class="empty-container">
-          <svg class="empty-icon" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
-            <path d="M5 8a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5A.5.5 0 0 1 5 8zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5A.5.5 0 0 1 5 6z"/>
-          </svg>
+          <span class="codicon codicon-inbox empty-icon"></span>
           <h2>No DevHubs Found</h2>
           <p>
             It looks like you haven't authorized any DevHub orgs yet.
@@ -157,9 +147,7 @@
         <section class="devhub-section">
           <div class="section-header">
             <h2 class="section-title">
-              <svg viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5zM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5z"/>
-              </svg>
+              <span class="codicon codicon-home"></span>
               DevHub Organizations
             </h2>
             <span class="count-badge">{devHubs.length}</span>
@@ -207,9 +195,8 @@
     gap: 8px;
   }
 
-  .logo svg {
-    width: 20px;
-    height: 20px;
+  .logo .codicon {
+    font-size: 20px;
     color: var(--vscode-button-background);
   }
 
@@ -250,12 +237,11 @@
     cursor: not-allowed;
   }
 
-  .refresh-button svg {
-    width: 14px;
-    height: 14px;
+  .refresh-button .codicon {
+    font-size: 14px;
   }
 
-  .refresh-button svg.spinning {
+  .refresh-button .codicon.spinning {
     animation: spin 1s linear infinite;
   }
 
@@ -312,15 +298,13 @@
   }
 
   .error-icon {
-    width: 48px;
-    height: 48px;
+    font-size: 48px;
     margin-bottom: 12px;
     color: var(--vscode-errorForeground);
   }
 
   .empty-icon {
-    width: 48px;
-    height: 48px;
+    font-size: 48px;
     margin-bottom: 12px;
     color: var(--vscode-descriptionForeground);
   }
@@ -374,9 +358,8 @@
     color: var(--vscode-foreground);
   }
 
-  .section-title svg {
-    width: 16px;
-    height: 16px;
+  .section-title .codicon {
+    font-size: 16px;
     opacity: 0.8;
   }
 
