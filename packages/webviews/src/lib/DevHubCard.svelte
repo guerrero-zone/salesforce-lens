@@ -8,6 +8,9 @@
 
   let { devHub, onclick }: Props = $props();
 
+  // Check if limits are still loading (-1 indicates loading)
+  const limitsLoading = $derived(devHub.limits.activeScratchOrgs === -1);
+
   const activePercentage = $derived(
     devHub.limits.maxActiveScratchOrgs > 0
       ? (devHub.limits.activeScratchOrgs / devHub.limits.maxActiveScratchOrgs) *
@@ -23,9 +26,9 @@
   );
 
   function getProgressColor(percentage: number): string {
-    if (percentage >= 90) return "var(--vscode-errorForeground, var(--color-danger))";
-    if (percentage >= 70) return "var(--vscode-editorWarning-foreground, var(--color-warning))";
-    return "var(--vscode-testing-iconPassed, var(--color-success))";
+    if (percentage >= 90) return "var(--vscode-errorForeground, #f14c4c)";
+    if (percentage >= 70) return "var(--vscode-editorWarning-foreground, #cca700)";
+    return "var(--vscode-testing-iconPassed, #22c55e)";
   }
 
   function formatDisplayName(devHub: DevHubInfo): string {
@@ -34,18 +37,33 @@
     }
     return devHub.username.split("@")[0];
   }
+
+  function getOrgTypeBadge(orgType: string): { text: string; class: string } {
+    switch (orgType) {
+      case "Production":
+        return { text: "PROD", class: "badge-production" };
+      case "Sandbox":
+        return { text: "SBX", class: "badge-sandbox" };
+      default:
+        return { text: "ORG", class: "badge-unknown" };
+    }
+  }
+
+  const badge = $derived(getOrgTypeBadge(devHub.orgType));
 </script>
 
 <button class="devhub-card" {onclick}>
   <div class="card-header">
     <div class="org-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
+      <svg viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5zM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5z"/>
       </svg>
     </div>
     <div class="org-info">
-      <h3 class="org-name">{formatDisplayName(devHub)}</h3>
+      <div class="org-name-row">
+        <h3 class="org-name">{formatDisplayName(devHub)}</h3>
+        <span class="org-type-badge {badge.class}">{badge.text}</span>
+      </div>
       <span class="org-username">{devHub.username}</span>
       {#if devHub.aliases.length > 1}
         <div class="aliases">
@@ -56,8 +74,8 @@
       {/if}
     </div>
     <div class="chevron">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="9 18 15 12 9 6" />
+      <svg viewBox="0 0 16 16" fill="currentColor">
+        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
       </svg>
     </div>
   </div>
@@ -71,16 +89,24 @@
         Active Scratch Orgs
       </div>
       <div class="stat-value">
-        <span class="stat-current">{devHub.limits.activeScratchOrgs}</span>
-        <span class="stat-separator">/</span>
-        <span class="stat-max">{devHub.limits.maxActiveScratchOrgs}</span>
+        {#if limitsLoading}
+          <span class="stat-loading">Loading...</span>
+        {:else}
+          <span class="stat-current">{devHub.limits.activeScratchOrgs}</span>
+          <span class="stat-separator">/</span>
+          <span class="stat-max">{devHub.limits.maxActiveScratchOrgs}</span>
+        {/if}
       </div>
     </div>
     <div class="progress-bar">
-      <div
-        class="progress-fill"
-        style="width: {activePercentage}%; background: {getProgressColor(activePercentage)}"
-      ></div>
+      {#if limitsLoading}
+        <div class="progress-loading"></div>
+      {:else}
+        <div
+          class="progress-fill"
+          style="width: {activePercentage}%; background: {getProgressColor(activePercentage)}"
+        ></div>
+      {/if}
     </div>
 
     <div class="stat-row">
@@ -91,16 +117,24 @@
         Daily Created
       </div>
       <div class="stat-value">
-        <span class="stat-current">{devHub.limits.dailyScratchOrgs}</span>
-        <span class="stat-separator">/</span>
-        <span class="stat-max">{devHub.limits.maxDailyScratchOrgs}</span>
+        {#if limitsLoading}
+          <span class="stat-loading">Loading...</span>
+        {:else}
+          <span class="stat-current">{devHub.limits.dailyScratchOrgs}</span>
+          <span class="stat-separator">/</span>
+          <span class="stat-max">{devHub.limits.maxDailyScratchOrgs}</span>
+        {/if}
       </div>
     </div>
     <div class="progress-bar">
-      <div
-        class="progress-fill"
-        style="width: {dailyPercentage}%; background: {getProgressColor(dailyPercentage)}"
-      ></div>
+      {#if limitsLoading}
+        <div class="progress-loading"></div>
+      {:else}
+        <div
+          class="progress-fill"
+          style="width: {dailyPercentage}%; background: {getProgressColor(dailyPercentage)}"
+        ></div>
+      {/if}
     </div>
   </div>
 
@@ -115,7 +149,7 @@
     all: unset;
     display: block;
     background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-widget-border, var(--border-color));
+    border: 1px solid var(--vscode-widget-border);
     border-radius: 6px;
     padding: 16px;
     cursor: pointer;
@@ -162,6 +196,12 @@
     min-width: 0;
   }
 
+  .org-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .org-name {
     margin: 0;
     font-size: 14px;
@@ -172,8 +212,31 @@
     text-overflow: ellipsis;
   }
 
+  .org-type-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .badge-production {
+    background: var(--vscode-testing-iconPassed, #22c55e);
+    color: white;
+  }
+
+  .badge-sandbox {
+    background: var(--vscode-editorWarning-foreground, #cca700);
+    color: black;
+  }
+
+  .badge-unknown {
+    background: var(--vscode-descriptionForeground);
+    color: white;
+  }
+
   .org-username {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--vscode-descriptionForeground);
     display: block;
     white-space: nowrap;
@@ -194,18 +257,18 @@
     padding: 2px 6px;
     background: var(--vscode-badge-background);
     color: var(--vscode-badge-foreground);
-    font-size: 11px;
+    font-size: 10px;
     border-radius: 3px;
     font-family: var(--vscode-editor-font-family, monospace);
   }
 
   .chevron {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     color: var(--vscode-descriptionForeground);
     transition: transform 0.15s ease;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: 4px;
   }
 
   .devhub-card:hover .chevron {
@@ -239,8 +302,8 @@
   }
 
   .stat-icon {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     opacity: 0.8;
   }
 
@@ -267,6 +330,12 @@
     font-size: 12px;
   }
 
+  .stat-loading {
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    font-style: italic;
+  }
+
   .progress-bar {
     height: 4px;
     background: var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2));
@@ -281,19 +350,36 @@
     transition: width 0.3s ease;
   }
 
+  .progress-loading {
+    height: 100%;
+    width: 30%;
+    background: var(--vscode-progressBar-background, var(--vscode-button-background));
+    border-radius: 2px;
+    animation: loading-slide 1s ease-in-out infinite;
+  }
+
+  @keyframes loading-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
   .card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid var(--vscode-widget-border, var(--border-color));
+    border-top: 1px solid var(--vscode-widget-border);
   }
 
   .status-badge {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 3px;
     text-transform: uppercase;
     letter-spacing: 0.02em;

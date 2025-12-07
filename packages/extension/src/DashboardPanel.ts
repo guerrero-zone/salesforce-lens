@@ -5,6 +5,7 @@ import {
   salesforceService,
   DevHubInfo,
   ScratchOrgInfo,
+  OrgInfo,
 } from "./services/SalesforceService";
 
 export class DashboardPanel {
@@ -87,6 +88,34 @@ export class DashboardPanel {
     DashboardPanel.currentPanel = new DashboardPanel(panel, extensionUri);
   }
 
+  /**
+   * Show scratch orgs for a specific DevHub
+   */
+  public static async showScratchOrgsForDevHub(
+    extensionUri: vscode.Uri,
+    devHubUsername: string,
+    devHubAliases: string[],
+    orgType: string
+  ): Promise<void> {
+    // Create or show the panel
+    DashboardPanel.createOrShow(extensionUri);
+
+    // Wait a bit for the webview to be ready
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Send message to show scratch orgs view
+    if (DashboardPanel.currentPanel) {
+      DashboardPanel.currentPanel._postMessage({
+        command: "showScratchOrgsView",
+        devHub: {
+          username: devHubUsername,
+          aliases: devHubAliases,
+          orgType,
+        },
+      });
+    }
+  }
+
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
     // Assign properties first to satisfy TypeScript
     this._panel = panel;
@@ -163,9 +192,53 @@ export class DashboardPanel {
   private async _sendDevHubs(): Promise<void> {
     try {
       this._postMessage({ command: "devHubsLoading" });
-      const devHubs: DevHubInfo[] =
-        await salesforceService.getDevHubsWithLimits();
-      this._postMessage({ command: "devHubsData", devHubs });
+
+      // First, get the list of DevHubs (fast)
+      const devHubsList: OrgInfo[] = await salesforceService.getDevHubsList();
+
+      // Send initial list with placeholder limits
+      const initialDevHubs: DevHubInfo[] = devHubsList.map((hub) => ({
+        ...hub,
+        limits: {
+          activeScratchOrgs: -1, // -1 indicates loading
+          maxActiveScratchOrgs: -1,
+          dailyScratchOrgs: -1,
+          maxDailyScratchOrgs: -1,
+        },
+      }));
+
+      this._postMessage({ command: "devHubsData", devHubs: initialDevHubs });
+
+      // Now fetch limits for each DevHub progressively
+      for (const devHub of devHubsList) {
+        try {
+          const limits = await salesforceService.getDevHubLimits(
+            devHub.username
+          );
+          this._postMessage({
+            command: "devHubLimitsLoaded",
+            username: devHub.username,
+            limits,
+          });
+        } catch (error) {
+          console.error(
+            `Failed to fetch limits for ${devHub.username}:`,
+            error
+          );
+          // Send error state for this DevHub's limits
+          this._postMessage({
+            command: "devHubLimitsLoaded",
+            username: devHub.username,
+            limits: {
+              activeScratchOrgs: 0,
+              maxActiveScratchOrgs: 0,
+              dailyScratchOrgs: 0,
+              maxDailyScratchOrgs: 0,
+            },
+            error: true,
+          });
+        }
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

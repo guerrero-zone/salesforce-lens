@@ -3,6 +3,8 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
+export type OrgType = "Production" | "Sandbox" | "Scratch" | "Unknown";
+
 export interface OrgInfo {
   username: string;
   orgId: string;
@@ -10,6 +12,35 @@ export interface OrgInfo {
   aliases: string[];
   isDevHub: boolean;
   connectedStatus: string;
+  orgType: OrgType;
+}
+
+/**
+ * Determine org type based on instanceUrl
+ */
+function determineOrgType(instanceUrl: string): OrgType {
+  if (!instanceUrl) return "Unknown";
+  const url = instanceUrl.toLowerCase();
+
+  // Sandbox patterns
+  if (url.includes(".sandbox.") || url.includes("--") || url.includes(".cs")) {
+    return "Sandbox";
+  }
+
+  // Scratch org patterns (typically have .scratch. or test in subdomain)
+  if (url.includes(".scratch.") || url.includes("test.salesforce.com")) {
+    return "Scratch";
+  }
+
+  // Production patterns
+  if (
+    url.includes(".my.salesforce.com") ||
+    url.includes(".lightning.force.com")
+  ) {
+    return "Production";
+  }
+
+  return "Unknown";
 }
 
 export interface ScratchOrgLimits {
@@ -153,6 +184,7 @@ export class SalesforceService {
           aliases: org.alias ? [org.alias] : [],
           isDevHub: true,
           connectedStatus: org.connectedStatus,
+          orgType: determineOrgType(org.instanceUrl),
         });
       }
     }
@@ -173,6 +205,7 @@ export class SalesforceService {
             aliases: org.alias ? [org.alias] : [],
             isDevHub: true,
             connectedStatus: org.connectedStatus,
+            orgType: determineOrgType(org.instanceUrl),
           });
         }
       }
@@ -206,9 +239,18 @@ export class SalesforceService {
           aliases: org.alias ? [org.alias] : [],
           isDevHub: false,
           connectedStatus: org.connectedStatus,
+          orgType: determineOrgType(org.instanceUrl),
         })) || [];
 
     return { devHubs, scratchOrgs, otherOrgs };
+  }
+
+  /**
+   * Get just the list of DevHubs (without limits) - fast operation for sidebar
+   */
+  async getDevHubsList(): Promise<OrgInfo[]> {
+    const { devHubs } = await this.getAuthorizedOrgs();
+    return devHubs;
   }
 
   /**

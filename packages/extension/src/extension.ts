@@ -34,6 +34,31 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(dashboardCommand);
 
+  // Register command to open scratch orgs for a specific DevHub
+  const openScratchOrgsCommand = vscode.commands.registerCommand(
+    "salesforce-lens.openScratchOrgs",
+    async (devHubUsername: string, devHubAliases: string[], orgType: string) => {
+      console.log("Open scratch orgs command executed for:", devHubUsername);
+      try {
+        await DashboardPanel.showScratchOrgsForDevHub(
+          context.extensionUri,
+          devHubUsername,
+          devHubAliases,
+          orgType
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.error("Error opening scratch orgs:", errorMessage);
+        vscode.window.showErrorMessage(
+          `Failed to open scratch orgs: ${errorMessage}`
+        );
+      }
+    }
+  );
+
+  context.subscriptions.push(openScratchOrgsCommand);
+
   // Register webview panel serializer for persistence
   if (vscode.window.registerWebviewPanelSerializer) {
     vscode.window.registerWebviewPanelSerializer(DashboardPanel.viewType, {

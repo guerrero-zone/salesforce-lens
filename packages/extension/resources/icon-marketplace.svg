@@ -1,0 +1,15 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#0176D3"/>
+  
+  <!-- Cloud shape -->
+  <path d="M100.5 58.2C98.1 43.1 84.8 32 69 32C56.8 32 46.1 38.9 40.9 49.1C27.1 50.4 16 61.1 16 74C16 88.4 27.6 100 42 100H98C108.5 100 117 91.5 117 81C117 70.8 109.1 62.5 100.5 58.2Z" fill="white"/>
+  
+  <!-- Magnifying glass -->
+  <circle cx="62" cy="68" r="18" stroke="#0176D3" stroke-width="6" fill="none"/>
+  <line x1="75" y1="81" x2="90" y2="96" stroke="#0176D3" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Sparkle/lens flare -->
+  <circle cx="55" cy="61" r="4" fill="#0176D3" opacity="0.3"/>
+</svg>
+

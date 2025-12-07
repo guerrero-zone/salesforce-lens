@@ -17,12 +17,17 @@
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
+  "icon": "resources/icon-marketplace.svg",
   "contributes": {
     "commands": [
       {
         "command": "salesforce-lens.dashboard",
         "title": "Salesforce Lens: Dashboard",
         "icon": "$(dashboard)"
+      },
+      {
+        "command": "salesforce-lens.openScratchOrgs",
+        "title": "Salesforce Lens: Open Scratch Orgs"
       }
     ],
     "viewsContainers": {

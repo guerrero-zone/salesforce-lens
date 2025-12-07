@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DevHubInfo } from "./lib/types";
+  import type { DevHubInfo, ScratchOrgLimits } from "./lib/types";
   import { postMessage } from "./lib/vscode";
   import DevHubCard from "./lib/DevHubCard.svelte";
   import ScratchOrgList from "./lib/ScratchOrgList.svelte";
@@ -25,6 +25,7 @@
   function loadDevHubs() {
     loading = true;
     error = null;
+    devHubs = [];
     postMessage({ command: "getDevHubs" });
   }
 
@@ -37,6 +38,7 @@
         case "devHubsLoading":
           loading = true;
           error = null;
+          devHubs = [];
           break;
 
         case "devHubsData":
@@ -49,6 +51,15 @@
           loading = false;
           break;
 
+        case "devHubLimitsLoaded":
+          // Update the specific DevHub's limits progressively
+          devHubs = devHubs.map((hub) =>
+            hub.username === message.username
+              ? { ...hub, limits: message.limits as ScratchOrgLimits }
+              : hub
+          );
+          break;
+
         case "devHubRefreshed":
           // Update the specific DevHub's limits
           devHubs = devHubs.map((hub) =>
@@ -56,6 +67,28 @@
               ? { ...hub, limits: message.limits }
               : hub
           );
+          break;
+
+        case "showScratchOrgsView":
+          // Open scratch orgs view directly from sidebar
+          const devHubData = message.devHub;
+          // Create a minimal DevHubInfo for the scratch org list
+          selectedDevHub = {
+            username: devHubData.username,
+            orgId: "",
+            instanceUrl: "",
+            aliases: devHubData.aliases || [],
+            isDevHub: true,
+            connectedStatus: "Connected",
+            orgType: devHubData.orgType || "Unknown",
+            limits: {
+              activeScratchOrgs: -1,
+              maxActiveScratchOrgs: -1,
+              dailyScratchOrgs: -1,
+              maxDailyScratchOrgs: -1,
+            },
+          };
+          currentView = "scratchOrgs";
           break;
       }
     };
@@ -74,8 +107,8 @@
     <header class="dashboard-header">
       <div class="header-content">
         <div class="logo">
-          <svg viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zM2.04 4.326c.325 1.329 2.532 2.54 3.717 3.19.48.263.793.434.743.484-.08.08-.162.158-.242.234-.416.396-.787.749-.758 1.266.035.634.618.824 1.214 1.017.577.188 1.168.38 1.286.983.082.417-.075.988-.22 1.52-.215.782-.406 1.48.22 1.48 1.5-.5 3-1.5 3-2.5 0-1.5-1.5-2-2.5-2-.77 0-1.5 0-1.5-.5 0-1 .5-1.5 1-2l3-3c0-.5-1-1.5-3-1.5-1.5 0-2 1-2 1.5s1 .5 1.5 1c.5.5.5 1 0 1.5s-2 2.5-3 2.5-2-1.5-2.5-2.5c-.05-.1-.15-.25-.3-.45C1.06 4.998.5 4.5.5 3.5c0-.817.597-1.5 1.54-1.174z"/>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14C0 17.31 2.69 20 6 20H19C21.76 20 24 17.76 24 15C24 12.36 21.95 10.22 19.35 10.04Z"/>
           </svg>
           <h1>Salesforce Lens</h1>
         </div>
@@ -91,7 +124,7 @@
     </header>
 
     <main class="dashboard-main">
-      {#if loading}
+      {#if loading && devHubs.length === 0}
         <div class="loading-container">
           <div class="loading-spinner"></div>
           <h2>Loading DevHubs...</h2>
@@ -132,7 +165,7 @@
             <span class="count-badge">{devHubs.length}</span>
           </div>
           <div class="devhub-grid">
-            {#each devHubs as devHub (devHub.orgId)}
+            {#each devHubs as devHub (devHub.username)}
               <DevHubCard {devHub} onclick={() => showScratchOrgs(devHub)} />
             {/each}
           </div>

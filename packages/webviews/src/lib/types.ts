@@ -1,3 +1,5 @@
+export type OrgType = "Production" | "Sandbox" | "Scratch" | "Unknown";
+
 export interface ScratchOrgLimits {
   activeScratchOrgs: number;
   maxActiveScratchOrgs: number;
@@ -12,6 +14,7 @@ export interface DevHubInfo {
   aliases: string[];
   isDevHub: boolean;
   connectedStatus: string;
+  orgType: OrgType;
   limits: ScratchOrgLimits;
 }
 
