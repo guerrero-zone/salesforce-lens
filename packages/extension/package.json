@@ -1,9 +1,10 @@
 {
   "name": "salesforce-lens",
   "displayName": "Salesforce Lens",
-  "description": "Salesforce Scratch Org admin tool",
-  "version": "0.0.1",
+  "description": "Salesforce DevOps admin tool",
+  "version": "1.0.2",
   "publisher": "amguerrero",
+  "icon": "resources/icon-marketplace.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/guerrero-zone/salesforce-lens.git"
@@ -66,10 +67,10 @@
     "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "package": "pnpm run compile && pnpm run copy-webviews && vsce package"
+    "package": "pnpm run compile && pnpm run copy-webviews && vsce package --no-dependencies"
   },
   "dependencies": {
-    "@vscode/codicons": "^0.0.36"
+    "@vscode/codicons": "^0.0.43"
   },
   "devDependencies": {
     "@types/vscode": "^1.99.3",
