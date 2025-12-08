@@ -2,7 +2,7 @@
   "name": "salesforce-lens",
   "displayName": "Salesforce Lens",
   "description": "Salesforce DevOps admin tool",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "amguerrero",
   "icon": "resources/icon-marketplace.png",
   "repository": {
@@ -14,7 +14,11 @@
     "vscode": "^1.99.3"
   },
   "categories": [
-    "Other"
+    "Salesforce",
+    "DevOps",
+    "Scratch Orgs",
+    "Admin",
+    "Tools"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",

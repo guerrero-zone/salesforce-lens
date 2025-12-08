@@ -2,8 +2,6 @@
 
 Manage Salesforce DevHubs and scratch orgs without leaving VS Code. Salesforce Lens surfaces your DevHub limits, lets you drill into every scratch org, and bulk‑delete expired ones with a couple of clicks.
 
-![Salesforce Lens preview](resources/icon-marketplace.png)
-
 ## Features
 
 - DevHub overview cards with active/daily scratch‑org usage, editions, aliases, and org‑type badges.
