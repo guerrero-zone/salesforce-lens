@@ -14,11 +14,7 @@
     "vscode": "^1.99.3"
   },
   "categories": [
-    "Salesforce",
-    "DevOps",
-    "Scratch Orgs",
-    "Admin",
-    "Tools"
+    "Other"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
