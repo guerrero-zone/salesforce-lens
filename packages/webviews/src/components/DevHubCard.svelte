@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { formatDisplayName, getEditionBadge } from "./parseUtils";
+  import { formatDisplayName, getEditionBadge } from "../lib/parseUtils";
   
-  import type { DevHubInfo } from "./types";
+  import type { DevHubInfo } from "../lib/types";
 
   interface Props {
     devHub: DevHubInfo;

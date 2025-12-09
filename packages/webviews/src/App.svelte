@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { DevHubInfo, ScratchOrgLimits } from "./lib/types";
   import { postMessage } from "./lib/vscode";
-  import DevHubCard from "./lib/DevHubCard.svelte";
-  import ScratchOrgList from "./lib/ScratchOrgList.svelte";
+  import DevHubCard from "./components/DevHubCard.svelte";
+  import ScratchOrgList from "./components/ScratchOrgList.svelte";
 
   type View = "dashboard" | "scratchOrgs";
 

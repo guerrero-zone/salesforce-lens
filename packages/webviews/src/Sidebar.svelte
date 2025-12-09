@@ -1,6 +1,6 @@
 <script lang="ts">
   import { postMessage } from "./lib/vscode";
-  import SidebarDevHubItem from "./lib/SidebarDevHubItem.svelte";
+  import SidebarDevHubItem from "./components/SidebarDevHubItem.svelte";
 
   interface SidebarDevHubInfo {
     username: string;

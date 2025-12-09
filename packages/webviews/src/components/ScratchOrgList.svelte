@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { DevHubInfo, ScratchOrgInfo } from "./types";
-  import { postMessage } from "./vscode";
+  import type { DevHubInfo, ScratchOrgInfo } from "../lib/types";
+  import { postMessage } from "../lib/vscode";
 
   interface Props {
     devHub: DevHubInfo;

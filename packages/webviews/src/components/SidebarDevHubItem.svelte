@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { formatDisplayName, getEditionBadge } from "./parseUtils";
+  import { formatDisplayName, getEditionBadge } from "../lib/parseUtils";
 
-  import type { SidebarDevHubInfo } from "./parseUtils";
+  import type { SidebarDevHubInfo } from "../lib/parseUtils";
 
   let { devHub, onclick }: { devHub: SidebarDevHubInfo; onclick: () => void } = $props();
 
