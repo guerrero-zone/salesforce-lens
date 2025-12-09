@@ -16,6 +16,12 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "Salesforce",
+    "DevOps",
+    "Scratch Orgs",
+    "Salesforce Management"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
