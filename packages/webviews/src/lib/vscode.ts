@@ -22,6 +22,6 @@ export function getVsCodeApi(): VsCodeApi {
   return vscode;
 }
 
-export function postMessage(message: object): void {
+export function postMessage(message: unknown): void {
   getVsCodeApi().postMessage(message);
 }

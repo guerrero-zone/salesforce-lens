@@ -15,6 +15,7 @@
   let searchQuery = $state("");
   let selectedOrgs = $state<Set<string>>(new Set());
   let filterStatus = $state<"active" | "expired" | "all">("active");
+  let filterDuration = $state<"all" | "1" | "7" | "14" | "30">("all");
   let isDeleting = $state(false);
 
   const filteredOrgs = $derived.by(() => {
@@ -25,6 +26,15 @@
       result = result.filter((org) => !org.isExpired && org.status === "Active");
     } else if (filterStatus === "expired") {
       result = result.filter((org) => org.isExpired || org.status !== "Active");
+    }
+
+    // Filter by duration days
+    if (filterDuration !== "all") {
+      const targetDuration = parseInt(filterDuration, 10);
+      result = result.filter((org) => {
+        const duration = org.durationDays;
+        return duration >= targetDuration;
+      });
     }
 
     // Filter by search query
@@ -239,6 +249,24 @@
       </button>
     </div>
 
+    <div class="duration-filter">
+      <label for="duration-select" class="duration-label">
+        <span class="codicon codicon-calendar"></span>
+        Duration:
+      </label>
+      <select 
+        id="duration-select"
+        class="duration-select"
+        bind:value={filterDuration}
+      >
+        <option value="all">All</option>
+        <option value="1">1 day</option>
+        <option value="7">7 days</option>
+        <option value="14">14 days</option>
+        <option value="30">30 days</option>
+      </select>
+    </div>
+
     {#if selectedOrgs.size > 0}
       <button
         class="delete-button"
@@ -298,6 +326,7 @@
             <th>Scratch Org</th>
             <th>Edition</th>
             <th>Status</th>
+            <th>Duration</th>
             <th>Created</th>
             <th>Expires</th>
             <th>Created By</th>
@@ -331,6 +360,9 @@
                 <span class="status-pill" class:active={org.status === "Active"} class:expired={org.isExpired} class:error={org.status === "Error"}>
                   {org.isExpired ? "Expired" : org.status}
                 </span>
+              </td>
+              <td class="duration-cell">
+                <span class="duration-badge">{org.durationDays}d</span>
               </td>
               <td class="date-cell">{formatDate(org.createdDate)}</td>
               <td class="date-cell">
@@ -526,6 +558,43 @@
   .filter-tab.active {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
+  }
+
+  .duration-filter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .duration-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+  }
+
+  .duration-label .codicon {
+    font-size: 12px;
+  }
+
+  .duration-select {
+    padding: 4px 8px;
+    border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
+    border-radius: 3px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    min-width: 80px;
+  }
+
+  .duration-select:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+    border-color: var(--vscode-focusBorder);
   }
 
   .delete-button {
@@ -741,6 +810,20 @@
   .status-pill.error {
     background: var(--vscode-editorWarning-foreground, #cca700);
     color: black;
+  }
+
+  .duration-cell {
+    text-align: center;
+  }
+
+  .duration-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
   }
 
   .date-cell {

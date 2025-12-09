@@ -37,7 +37,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Register command to open scratch orgs for a specific DevHub
   const openScratchOrgsCommand = vscode.commands.registerCommand(
     "salesforce-lens.openScratchOrgs",
-    async (devHubUsername: string, devHubAliases: string[], orgType: string) => {
+    async (
+      devHubUsername: string,
+      devHubAliases: string[],
+      orgType: string
+    ) => {
       console.log("Open scratch orgs command executed for:", devHubUsername);
       try {
         await DashboardPanel.showScratchOrgsForDevHub(

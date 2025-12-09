@@ -15,6 +15,9 @@ export class DashboardPanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
+  private _isWebviewReady: boolean = false;
+  private _pendingMessages: object[] = [];
+  private _readyResolvers: Array<() => void> = [];
 
   /**
    * Gets the webview output path, checking both production (webviews/out)
@@ -100,11 +103,9 @@ export class DashboardPanel {
     // Create or show the panel
     DashboardPanel.createOrShow(extensionUri);
 
-    // Wait a bit for the webview to be ready
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Send message to show scratch orgs view
+    // Wait for webview to be ready
     if (DashboardPanel.currentPanel) {
+      await DashboardPanel.currentPanel._waitForReady();
       DashboardPanel.currentPanel._postMessage({
         command: "showScratchOrgsView",
         devHub: {
@@ -167,6 +168,10 @@ export class DashboardPanel {
     [key: string]: any;
   }): Promise<void> {
     switch (message.command) {
+      case "webviewReady":
+        this._onWebviewReady();
+        return;
+
       case "alert":
         vscode.window.showInformationMessage(message.text);
         return;
@@ -189,12 +194,47 @@ export class DashboardPanel {
     }
   }
 
+  private _onWebviewReady(): void {
+    console.log("Webview reported ready");
+    this._isWebviewReady = true;
+
+    // Resolve all pending ready promises
+    for (const resolve of this._readyResolvers) {
+      resolve();
+    }
+    this._readyResolvers = [];
+
+    // Send any pending messages
+    for (const message of this._pendingMessages) {
+      this._panel.webview.postMessage(message);
+    }
+    this._pendingMessages = [];
+  }
+
+  private _waitForReady(): Promise<void> {
+    if (this._isWebviewReady) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      this._readyResolvers.push(resolve);
+      // Timeout after 5 seconds as fallback
+      setTimeout(() => {
+        if (!this._isWebviewReady) {
+          console.warn("Webview ready timeout - forcing ready state");
+          this._onWebviewReady();
+        }
+      }, 5000);
+    });
+  }
+
   private async _sendDevHubs(): Promise<void> {
     try {
       this._postMessage({ command: "devHubsLoading" });
 
-      // First, get the list of DevHubs (fast)
-      const devHubsList: OrgInfo[] = await salesforceService.getDevHubsList();
+      // First, get the list of DevHubs with editions
+      const devHubsList: OrgInfo[] =
+        await salesforceService.getDevHubsListWithEdition();
 
       // Send initial list with placeholder limits
       const initialDevHubs: DevHubInfo[] = devHubsList.map((hub) => ({
@@ -414,115 +454,66 @@ export class DashboardPanel {
       }
       let html = fs.readFileSync(indexPath, "utf8");
 
-      // Get asset URIs
+      // Get the base URI for assets
       const assetsUri = webview.asWebviewUri(
         vscode.Uri.joinPath(webviewOutPath, "assets")
       );
 
-      // Generate a single nonce for this webview
+      // Generate a nonce for CSP
       const nonce = getNonce();
 
-      // IMPORTANT: Process JavaScript files BEFORE replacing HTML paths
-      // because we need to match the original /assets/ paths in the HTML
+      // Replace all asset paths with webview URIs
+      // Handle both ./assets/ and /assets/ patterns
+      html = html.replace(/(?:src|href)="\.\/assets\//g, (match) => {
+        return match.replace("./assets/", `${assetsUri}/`);
+      });
+      html = html.replace(/(?:src|href)="\/assets\//g, (match) => {
+        return match.replace("/assets/", `${assetsUri}/`);
+      });
+
+      // Remove crossorigin attribute (not needed/supported in webviews)
+      html = html.replace(/ crossorigin/g, "");
+
+      // Process CSS files to fix font URLs and inline them
       const assetsDir = path.join(webviewOutPath.fsPath, "assets");
       if (fs.existsSync(assetsDir)) {
-        const jsFiles = fs
+        const cssFiles = fs
           .readdirSync(assetsDir)
-          .filter((file) => file.endsWith(".js"));
-        for (const jsFile of jsFiles) {
+          .filter((file) => file.endsWith(".css"));
+        for (const cssFile of cssFiles) {
           try {
-            const jsPath = path.join(assetsDir, jsFile);
-            if (!fs.existsSync(jsPath)) {
-              console.warn(`JavaScript file not found: ${jsPath}`);
-              continue;
-            }
-            let jsContent = fs.readFileSync(jsPath, "utf8");
+            const cssPath = path.join(assetsDir, cssFile);
+            let cssContent = fs.readFileSync(cssPath, "utf8");
 
-            // Replace asset paths in JavaScript (both absolute and relative)
-            jsContent = jsContent.replace(/\.?\/assets\//g, `${assetsUri}/`);
+            // Fix font URLs in CSS
+            cssContent = cssContent.replace(
+              /url\(["']?([^"')]+\.(ttf|woff|woff2|eot))(\?[^"')]*)?["']?\)/g,
+              `url("${assetsUri}/$1")`
+            );
 
-            // Replace the script src with inline script
-            // Match script tag with src pointing to this JS file, handling any attributes
-            const escapedJsFile = jsFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-            // Try multiple regex patterns to match the script tag (both absolute and relative paths)
-            const patterns = [
-              // Pattern 1: Relative path with whitespace
-              `<script[^>]*src=["']\\./assets/${escapedJsFile}["'][^>]*>\\s*</script>`,
-              // Pattern 2: Relative path without whitespace
-              `<script[^>]*src=["']\\./assets/${escapedJsFile}["'][^>]*></script>`,
-              // Pattern 3: Absolute path with whitespace
-              `<script[^>]*src=["']/assets/${escapedJsFile}["'][^>]*>\\s*</script>`,
-              // Pattern 4: Absolute path without whitespace
-              `<script[^>]*src=["']/assets/${escapedJsFile}["'][^>]*></script>`,
-            ];
-
-            let replaced = false;
-            for (const patternStr of patterns) {
-              const pattern = new RegExp(patternStr, "g");
-              const originalHtml = html;
-              html = html.replace(
-                pattern,
-                `<script nonce="${nonce}" type="module">${jsContent}</script>`
-              );
-              if (html !== originalHtml) {
-                replaced = true;
-                break;
-              }
-            }
-
-            if (!replaced) {
-              console.warn(`Could not find script tag for ${jsFile} in HTML`);
-            }
+            // Replace the CSS link with inline style
+            const cssUri = `${assetsUri}/${cssFile}`;
+            const cssLinkPattern = new RegExp(
+              `<link[^>]*href="${cssUri.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              )}"[^>]*>`,
+              "g"
+            );
+            html = html.replace(cssLinkPattern, `<style>${cssContent}</style>`);
           } catch (error) {
-            console.error(`Error processing JavaScript file ${jsFile}:`, error);
-            // Continue with other files
+            console.error(`Error processing CSS file ${cssFile}:`, error);
           }
         }
       }
 
-      // Replace asset paths in HTML (after processing JS files)
-      // Handle both absolute (/assets/) and relative (./assets/) paths
-      html = html.replace(/href="\.?\/assets\//g, `href="${assetsUri}/`);
-      html = html.replace(/src="\.?\/assets\//g, `src="${assetsUri}/`);
-
-      // Also process CSS files to replace font URLs
-      const cssFiles = fs
-        .readdirSync(assetsDir)
-        .filter((file) => file.endsWith(".css"));
-      for (const cssFile of cssFiles) {
-        try {
-          const cssPath = path.join(assetsDir, cssFile);
-          let cssContent = fs.readFileSync(cssPath, "utf8");
-
-          // Replace font URLs in CSS (handles both relative and absolute paths)
-          // The regex must handle optional query strings after the extension (e.g., ?38dcd33...)
-          cssContent = cssContent.replace(
-            /url\(["']?\.?\/?(assets\/)?([^"'?)]+\.(ttf|woff|woff2|eot))(\?[^"')]*)?["']?\)/g,
-            `url("${assetsUri}/$2")`
-          );
-
-          // Replace the CSS link with inline style (for font loading to work)
-          const escapedCssFile = cssFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const cssPattern = new RegExp(
-            `<link[^>]*href=["'][^"']*${escapedCssFile}["'][^>]*>`,
-            "g"
-          );
-          html = html.replace(cssPattern, `<style>${cssContent}</style>`);
-        } catch (error) {
-          console.error(`Error processing CSS file ${cssFile}:`, error);
-        }
-      }
-
-      // Add CSP
-      const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-inline'; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource};">`;
-
-      // Insert CSP and add nonce to any remaining scripts
+      // Add CSP meta tag
+      const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource};">`;
       html = html.replace("<head>", `<head>\n    ${csp}`);
-      html = html.replace(
-        /<script(?![^>]*nonce)/g,
-        `<script nonce="${nonce}" `
-      );
+
+      // Add nonce to script tags
+      html = html.replace(/<script /g, `<script nonce="${nonce}" `);
+      html = html.replace(/<script>/g, `<script nonce="${nonce}">`);
 
       return html;
     } catch (error) {

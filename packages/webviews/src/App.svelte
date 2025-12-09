@@ -94,6 +94,10 @@
     };
 
     window.addEventListener("message", handleMessage);
+    
+    // Notify extension that webview is ready
+    postMessage({ command: "webviewReady" });
+    
     loadDevHubs();
 
     return () => {

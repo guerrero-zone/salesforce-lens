@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatDisplayName, getEditionBadge } from "./parseUtils";
+  
   import type { DevHubInfo } from "./types";
 
   interface Props {
@@ -31,25 +33,7 @@
     return "var(--vscode-testing-iconPassed, #22c55e)";
   }
 
-  function formatDisplayName(devHub: DevHubInfo): string {
-    if (devHub.aliases.length > 0) {
-      return devHub.aliases[0];
-    }
-    return devHub.username.split("@")[0];
-  }
-
-  function getOrgTypeBadge(orgType: string): { text: string; class: string } {
-    switch (orgType) {
-      case "Production":
-        return { text: "PROD", class: "badge-production" };
-      case "Sandbox":
-        return { text: "SBX", class: "badge-sandbox" };
-      default:
-        return { text: "ORG", class: "badge-unknown" };
-    }
-  }
-
-  const badge = $derived(getOrgTypeBadge(devHub.orgType));
+  const editionBadge = $derived(getEditionBadge(devHub.edition));
 </script>
 
 <button class="devhub-card" {onclick}>
@@ -60,7 +44,9 @@
     <div class="org-info">
       <div class="org-name-row">
         <h3 class="org-name">{formatDisplayName(devHub)}</h3>
-        <span class="org-type-badge {badge.class}">{badge.text}</span>
+        {#if editionBadge.text}
+          <span class="edition-badge {editionBadge.class}">{editionBadge.text}</span>
+        {/if}
       </div>
       <span class="org-username">{devHub.username}</span>
       {#if devHub.aliases.length > 1}
@@ -203,27 +189,68 @@
     text-overflow: ellipsis;
   }
 
-  .org-type-badge {
+  .edition-badge {
     font-size: 9px;
-    padding: 1px 4px;
-    border-radius: 2px;
-    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 500;
     flex-shrink: 0;
   }
 
-  .badge-production {
-    background: var(--vscode-testing-iconPassed, #22c55e);
-    color: white;
+  /* Developer Edition - Blue/Cyan tones */
+  .badge-developer {
+    background-color: rgba(0, 120, 212, 0.15);
+    color: var(--vscode-textLink-foreground, #3794ff);
+    border: 1px solid rgba(0, 120, 212, 0.3);
   }
 
-  .badge-sandbox {
-    background: var(--vscode-editorWarning-foreground, #cca700);
-    color: black;
+  /* Enterprise Edition - Purple/Violet tones */
+  .badge-enterprise {
+    background-color: rgba(136, 71, 210, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(136, 71, 210, 0.3);
   }
 
-  .badge-unknown {
-    background: var(--vscode-descriptionForeground);
-    color: white;
+  /* Unlimited Edition - Gold/Amber tones */
+  .badge-unlimited {
+    background-color: rgba(217, 164, 6, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(217, 164, 6, 0.3);
+  }
+
+  /* Professional Edition - Green tones */
+  .badge-professional {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: var(--vscode-testing-iconPassed, #22c55e);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  /* Partner Edition - Orange tones */
+  .badge-partner {
+    background-color: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+  }
+
+  /* Performance Edition - Red/Rose tones */
+  .badge-performance {
+    background-color: rgba(244, 63, 94, 0.15);
+    color: #fb7185;
+    border: 1px solid rgba(244, 63, 94, 0.3);
+  }
+
+  /* Group/Team Edition - Teal tones */
+  .badge-group {
+    background-color: rgba(20, 184, 166, 0.15);
+    color: #2dd4bf;
+    border: 1px solid rgba(20, 184, 166, 0.3);
+  }
+
+  /* Default badge for unknown editions */
+  .badge-default {
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border: 1px solid var(--vscode-widget-border);
   }
 
   .org-username {

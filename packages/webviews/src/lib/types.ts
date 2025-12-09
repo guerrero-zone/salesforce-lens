@@ -25,6 +25,7 @@ export interface ScratchOrgInfo {
   orgId: string;
   instanceUrl: string;
   alias?: string;
+  durationDays: number;
   expirationDate: string;
   devHubUsername: string;
   status: string;
@@ -36,7 +37,7 @@ export interface ScratchOrgInfo {
 }
 
 export interface VsCodeApi {
-  postMessage(message: object): void;
+  postMessage(message: unknown): void;
   getState(): unknown;
   setState(state: unknown): void;
 }

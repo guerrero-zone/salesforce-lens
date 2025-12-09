@@ -122,6 +122,7 @@ interface SfScratchOrgListResult {
       SignupEmail: string;
       Edition: string;
       Status: string;
+      DurationDays: number;
       ExpirationDate: string;
       CreatedDate: string;
       CreatedBy?: {
@@ -366,7 +367,7 @@ export class SalesforceService {
     devHubUsername: string
   ): Promise<ScratchOrgInfo[]> {
     try {
-      const query = `SELECT Id, OrgName, SignupUsername, SignupEmail, Edition, Status, ExpirationDate, CreatedDate, CreatedBy.Name, CreatedBy.Username, ScratchOrg FROM ScratchOrgInfo WHERE Status != 'Deleted' ORDER BY CreatedDate DESC`;
+      const query = `SELECT Id, OrgName, SignupUsername, SignupEmail, Edition, Status, DurationDays, ExpirationDate, CreatedDate, CreatedBy.Name, CreatedBy.Username, ScratchOrg FROM ScratchOrgInfo WHERE Status != 'Deleted' ORDER BY CreatedDate DESC`;
 
       const result = await this.execSfCommand<SfScratchOrgListResult>(
         `sf data query --query "${query}" --target-org "${devHubUsername}" --json`
@@ -378,6 +379,7 @@ export class SalesforceService {
         orgId: record.ScratchOrg || record.Id,
         instanceUrl: "",
         alias: record.OrgName || undefined,
+        durationDays: record.DurationDays,
         expirationDate: record.ExpirationDate,
         devHubUsername,
         status: record.Status,
