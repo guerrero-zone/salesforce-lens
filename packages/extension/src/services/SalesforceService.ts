@@ -142,6 +142,63 @@ interface SfOrganizationQueryResult {
   };
 }
 
+export interface SnapshotInfo {
+  id: string;
+  ownerName: string;
+  isDeleted: boolean;
+  createdDate: string;
+  snapshotName: string;
+  sourceOrg: string;
+  content: string;
+  status: string;
+  provider: string;
+  providerSnapshot: string;
+  error: string;
+  providerSnapshotVersion: string;
+  expirationDate: string;
+  description: string;
+}
+
+export interface SnapshotsInfo {
+  status: "available" | "unavailable" | "loading";
+  activeCount: number;
+  totalCount: number;
+}
+
+interface SfSnapshotQueryResult {
+  result: {
+    records: Array<{
+      Id: string;
+      "Owner.Name"?: string;
+      Owner?: {
+        Name: string;
+      };
+      IsDeleted: boolean;
+      CreatedDate: string;
+      SnapshotName: string;
+      SourceOrg: string;
+      Content?: string;
+      Status: string;
+      Provider?: string;
+      ProviderSnapshot?: string;
+      Error?: string;
+      ProviderSnapshotVersion?: string;
+      ExpirationDate?: string;
+      Description?: string;
+    }>;
+    totalSize: number;
+  };
+}
+
+interface SfSnapshotCountResult {
+  result: {
+    records: Array<{
+      expr0: number;
+    }>;
+    totalSize: number;
+  };
+}
+
 export class SalesforceService {
   private execOptions: ExecOptions = {
     maxBuffer: 1024 * 1024 * 10, // 10MB buffer
@@ -468,6 +525,119 @@ export class SalesforceService {
     }
 
     return { success, failed };
+  }
+
+  /**
+   * Get snapshot counts for a DevHub (for dashboard card)
+   * Returns unavailable status if snapshots are not enabled or user lacks permissions
+   */
+  async getSnapshotsInfo(devHubUsername: string): Promise<SnapshotsInfo> {
+    try {
+      // Query for active snapshots count
+      const activeQuery = `SELECT COUNT(Id) FROM OrgSnapshot WHERE Status = 'Active'`;
+      const activeResult = await this.execSfCommand<SfSnapshotCountResult>(
+        `sf data query --query "${activeQuery}" --target-org "${devHubUsername}" --json`
+      );
+
+      // Query for total snapshots count
+      const totalQuery = `SELECT COUNT(Id) FROM OrgSnapshot`;
+      const totalResult = await this.execSfCommand<SfSnapshotCountResult>(
+        `sf data query --query "${totalQuery}" --target-org "${devHubUsername}" --json`
+      );
+
+      return {
+        status: "available",
+        activeCount: activeResult.result.records[0]?.expr0 || 0,
+        totalCount: totalResult.result.records[0]?.expr0 || 0,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      // Check if it's an access/permission error or object doesn't exist
+      if (
+        errorMessage.includes("sObject type 'OrgSnapshot' is not supported") ||
+        errorMessage.includes("INVALID_TYPE") ||
+        errorMessage.includes("insufficient access") ||
+        errorMessage.includes("not authorized") ||
+        errorMessage.includes("INSUFFICIENT_ACCESS")
+      ) {
+        console.warn(
+          `Snapshots not available for DevHub ${devHubUsername}: ${errorMessage}`
+        );
+        return {
+          status: "unavailable",
+          activeCount: 0,
+          totalCount: 0,
+        };
+      }
+      // For other errors, also return unavailable
+      console.error(
+        `Salesforce Service: Failed to fetch snapshots info for ${devHubUsername}:`,
+        errorMessage
+      );
+      return {
+        status: "unavailable",
+        activeCount: 0,
+        totalCount: 0,
+      };
+    }
+  }
+
+  /**
+   * Get all snapshots for a specific DevHub
+   */
+  async getAllSnapshotsForDevHub(devHubUsername: string): Promise<{
+    snapshots: SnapshotInfo[];
+    status: "available" | "unavailable";
+  }> {
+    try {
+      const query = `SELECT Id, Owner.Name, IsDeleted, CreatedDate, SnapshotName, SourceOrg, Content, Status, Provider, ProviderSnapshot, Error, ProviderSnapshotVersion, ExpirationDate, Description FROM OrgSnapshot ORDER BY CreatedDate DESC`;
+
+      const result = await this.execSfCommand<SfSnapshotQueryResult>(
+        `sf data query --query "${query}" --target-org "${devHubUsername}" --json`
+      );
+
+      const snapshots: SnapshotInfo[] = result.result.records.map((record) => ({
+        id: record.Id,
+        ownerName: record.Owner?.Name || record["Owner.Name"] || "Unknown",
+        isDeleted: record.IsDeleted,
+        createdDate: record.CreatedDate,
+        snapshotName: record.SnapshotName,
+        sourceOrg: record.SourceOrg || "",
+        content: record.Content || "",
+        status: record.Status,
+        provider: record.Provider || "",
+        providerSnapshot: record.ProviderSnapshot || "",
+        error: record.Error || "",
+        providerSnapshotVersion: record.ProviderSnapshotVersion || "",
+        expirationDate: record.ExpirationDate || "",
+        description: record.Description || "",
+      }));
+
+      return { snapshots, status: "available" };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      // Check if it's an access/permission error or object doesn't exist
+      if (
+        errorMessage.includes("sObject type 'OrgSnapshot' is not supported") ||
+        errorMessage.includes("INVALID_TYPE") ||
+        errorMessage.includes("insufficient access") ||
+        errorMessage.includes("not authorized") ||
+        errorMessage.includes("INSUFFICIENT_ACCESS")
+      ) {
+        console.warn(
+          `Snapshots not available for DevHub ${devHubUsername}: ${errorMessage}`
+        );
+      } else {
+        console.error(
+          `Failed to fetch snapshots for DevHub ${devHubUsername}:`,
+          errorMessage
+        );
+      }
+      // throw error;
+      return { snapshots: [], status: "unavailable" };
+    }
   }
 }
 

@@ -1,22 +1,29 @@
 <script lang="ts">
-  import type { DevHubInfo, ScratchOrgInfo } from "../lib/types";
+  import type { ScratchOrgInfo } from "../lib/types";
   import { postMessage } from "../lib/vscode";
 
   interface Props {
-    devHub: DevHubInfo;
-    onback: () => void;
+    scratchOrgs: ScratchOrgInfo[];
+    loading: boolean;
+    error: string | null;
+    devHubUsername: string;
+    onretry: () => void;
   }
 
-  let { devHub, onback }: Props = $props();
+  let { scratchOrgs, loading, error, devHubUsername, onretry }: Props = $props();
 
-  let scratchOrgs = $state<ScratchOrgInfo[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
   let searchQuery = $state("");
   let selectedOrgs = $state<Set<string>>(new Set());
   let filterStatus = $state<"active" | "expired" | "all">("active");
   let filterDuration = $state<"all" | "1" | "7" | "14" | "30">("all");
   let isDeleting = $state(false);
+
+  // Reset selection when scratchOrgs change (e.g., different devhub)
+  $effect(() => {
+    // When scratchOrgs reference changes, reset selection
+    scratchOrgs;
+    selectedOrgs = new Set();
+  });
 
   const filteredOrgs = $derived.by(() => {
     let result = scratchOrgs;
@@ -85,7 +92,7 @@
       .filter((org) => selectedOrgs.has(org.id))
       .map((org) => ({
         id: org.id,
-        devHubUsername: devHub.username,
+        devHubUsername: devHubUsername,
       }));
 
     postMessage({
@@ -119,58 +126,18 @@
     return "healthy";
   }
 
-  function loadScratchOrgs() {
-    loading = true;
-    error = null;
-    selectedOrgs = new Set();
-    postMessage({
-      command: "getScratchOrgs",
-      devHubUsername: devHub.username,
-    });
-  }
-
-  function refreshList() {
-    loadScratchOrgs();
-  }
-
-  // Listen for messages from extension
+  // Listen for delete messages from extension
   $effect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
 
       switch (message.command) {
-        case "scratchOrgsLoading":
-          if (message.devHubUsername === devHub.username) {
-            loading = true;
-            error = null;
-          }
-          break;
-
-        case "scratchOrgsData":
-          if (message.devHubUsername === devHub.username) {
-            scratchOrgs = message.scratchOrgs;
-            loading = false;
-          }
-          break;
-
-        case "scratchOrgsError":
-          if (message.devHubUsername === devHub.username) {
-            error = message.error;
-            loading = false;
-          }
-          break;
-
         case "deleteStarted":
           isDeleting = true;
           break;
 
         case "deleteCompleted":
           isDeleting = false;
-          // Remove deleted orgs from the list
-          const deletedIds = new Set(message.success);
-          scratchOrgs = scratchOrgs.filter(
-            (org) => !deletedIds.has(org.id)
-          );
           selectedOrgs = new Set();
           break;
 
@@ -182,39 +149,14 @@
     };
 
     window.addEventListener("message", handleMessage);
-    loadScratchOrgs();
 
     return () => {
       window.removeEventListener("message", handleMessage);
     };
   });
-
-  function getDevHubDisplayName(): string {
-    if (devHub.aliases.length > 0) {
-      return devHub.aliases[0];
-    }
-    return devHub.username;
-  }
 </script>
 
-<div class="scratch-org-list">
-  <header class="list-header">
-    <button class="back-button" onclick={onback} title="Back to Dashboard">
-      <span class="codicon codicon-arrow-left"></span>
-      Back
-    </button>
-
-    <div class="header-info">
-      <h2>{getDevHubDisplayName()}</h2>
-      <span class="subtitle">Scratch Orgs</span>
-    </div>
-
-    <button class="refresh-button" onclick={refreshList} disabled={loading} title="Refresh scratch orgs">
-      <span class="codicon codicon-refresh" class:spinning={loading}></span>
-      Refresh
-    </button>
-  </header>
-
+<div class="scratch-org-content">
   <div class="controls">
     <div class="search-box">
       <span class="codicon codicon-search search-icon"></span>
@@ -294,7 +236,7 @@
       <span class="codicon codicon-warning error-icon"></span>
       <h3>Failed to load scratch orgs</h3>
       <p>{error}</p>
-      <button class="retry-button" onclick={loadScratchOrgs}>
+      <button class="retry-button" onclick={onretry}>
         Try Again
       </button>
     </div>
@@ -391,106 +333,19 @@
 </div>
 
 <style>
-  .scratch-org-list {
+  .scratch-org-content {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    background: var(--vscode-editor-background);
-  }
-
-  .list-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--vscode-widget-border);
-    background: var(--vscode-editor-background);
-  }
-
-  .back-button {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    background: transparent;
-    border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-widget-border));
-    border-radius: 3px;
-    color: var(--vscode-foreground);
-    cursor: pointer;
-    font-size: 12px;
-    transition: background 0.1s;
-  }
-
-  .back-button:hover {
-    background: var(--vscode-list-hoverBackground);
-  }
-
-  .back-button .codicon {
-    font-size: 14px;
-  }
-
-  .header-info {
-    flex: 1;
-  }
-
-  .header-info h2 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--vscode-foreground);
-  }
-
-  .header-info .subtitle {
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .refresh-button {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    background: var(--vscode-button-secondaryBackground);
-    border: 1px solid var(--vscode-button-secondaryBackground);
-    border-radius: 3px;
-    color: var(--vscode-button-secondaryForeground);
-    cursor: pointer;
-    font-size: 12px;
-    transition: background 0.1s;
-  }
-
-  .refresh-button:hover:not(:disabled) {
-    background: var(--vscode-button-secondaryHoverBackground);
-  }
-
-  .refresh-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .refresh-button .codicon {
-    font-size: 14px;
-  }
-
-  .refresh-button .codicon.spinning {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .controls {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 16px;
-    background: var(--vscode-sideBar-background);
+    padding: 8px 0;
     flex-wrap: wrap;
-    border-bottom: 1px solid var(--vscode-widget-border);
   }
 
   .search-box {
@@ -632,6 +487,12 @@
     border-top-color: white;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .loading-state,
@@ -863,9 +724,8 @@
   }
 
   .table-footer {
-    padding: 8px 16px;
+    padding: 8px 0;
     border-top: 1px solid var(--vscode-widget-border);
-    background: var(--vscode-sideBar-background);
   }
 
   .count-info {
@@ -873,3 +733,4 @@
     color: var(--vscode-descriptionForeground);
   }
 </style>
+

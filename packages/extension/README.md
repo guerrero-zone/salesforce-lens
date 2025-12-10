@@ -6,15 +6,26 @@ Salesforce Lens is a Dashboard for Salesforce DevOps Managers and Engineers, Dev
 
 ### System Dashboard
 
-Quick view of the state of your Salesforce systems:
+Quick view of the state of your DevHub orgs with information about:
 
-- Scratch Orgs Status
+- The active Scratch Orgs created in them (comparing with the limit of daily active scratch orgs)
+- The Snapshots created on those DevHub orgs (showing the active vs expired numbers)
 
-### Scratch Orgs Dashboard
+When clicking on one of the DevHub cards, it navigates to a DevHub detail page with more detailed information:
 
-Provides a list of all the DevHub orgs authenticated in the system with information about how many scratch orgs are currently active.
+- List of Scratch Orgs with more information about them like duration, expiry date, ...
+- List of Snapshots
 
-By clicking on any DevHub org, it opens a list with information about all the scratch orgs in it (not only the ones created locally), and gives the chance to delete them.
+### Scratch Orgs Tab
+
+Displays a list of the Scratch Orgs existing in the selected DevHub org with useful information like who created it, what was the duration selected when it was created, expiry date and how long until it's going to expire, and more...
+
+This tab also allows us to filter the Scratch Orgs and select them so we can (bulk) delete them.
+
+### Snapshots Tab
+
+Displays a list with all the Snapshots created in the selected DevHub org, with all the information about them.
+We can filter them by their status: Active or Expired.
 
 ## Prerequisites
 

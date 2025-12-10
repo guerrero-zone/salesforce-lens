@@ -6,6 +6,7 @@ import {
   DevHubInfo,
   ScratchOrgInfo,
   OrgInfo,
+  SnapshotInfo,
 } from "./services/SalesforceService";
 
 export class DashboardPanel {
@@ -191,6 +192,10 @@ export class DashboardPanel {
       case "refreshDevHub":
         await this._refreshDevHub(message.devHubUsername);
         return;
+
+      case "getSnapshots":
+        await this._sendSnapshots(message.devHubUsername);
+        return;
     }
   }
 
@@ -249,8 +254,9 @@ export class DashboardPanel {
 
       this._postMessage({ command: "devHubsData", devHubs: initialDevHubs });
 
-      // Now fetch limits for each DevHub progressively
+      // Now fetch limits and snapshots for each DevHub progressively
       for (const devHub of devHubsList) {
+        // Fetch limits
         try {
           const limits = await salesforceService.getDevHubLimits(
             devHub.username
@@ -276,6 +282,32 @@ export class DashboardPanel {
               maxDailyScratchOrgs: 0,
             },
             error: true,
+          });
+        }
+
+        // Fetch snapshots info (count for card display)
+        try {
+          const snapshotsInfo = await salesforceService.getSnapshotsInfo(
+            devHub.username
+          );
+          this._postMessage({
+            command: "devHubSnapshotsInfoLoaded",
+            username: devHub.username,
+            snapshotsInfo,
+          });
+        } catch (error) {
+          console.error(
+            `Failed to fetch snapshots info for ${devHub.username}:`,
+            error
+          );
+          this._postMessage({
+            command: "devHubSnapshotsInfoLoaded",
+            username: devHub.username,
+            snapshotsInfo: {
+              status: "unavailable",
+              activeCount: 0,
+              totalCount: 0,
+            },
           });
         }
       }
@@ -316,6 +348,32 @@ export class DashboardPanel {
       vscode.window.showErrorMessage(
         `Failed to fetch scratch orgs: ${errorMessage}`
       );
+    }
+  }
+
+  private async _sendSnapshots(devHubUsername: string): Promise<void> {
+    try {
+      this._postMessage({
+        command: "snapshotsLoading",
+        devHubUsername,
+      });
+      const result = await salesforceService.getAllSnapshotsForDevHub(
+        devHubUsername
+      );
+      this._postMessage({
+        command: "snapshotsData",
+        devHubUsername,
+        snapshots: result.snapshots,
+        status: result.status,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this._postMessage({
+        command: "snapshotsError",
+        devHubUsername,
+        error: errorMessage,
+      });
     }
   }
 

@@ -13,6 +13,10 @@
   // Check if limits are still loading (-1 indicates loading)
   const limitsLoading = $derived(devHub.limits.activeScratchOrgs === -1);
 
+  // Check snapshots status
+  const snapshotsLoading = $derived(!devHub.snapshots || devHub.snapshots.status === "loading");
+  const snapshotsAvailable = $derived(devHub.snapshots?.status === "available");
+
   const activePercentage = $derived(
     devHub.limits.maxActiveScratchOrgs > 0
       ? (devHub.limits.activeScratchOrgs / devHub.limits.maxActiveScratchOrgs) *
@@ -114,11 +118,29 @@
         ></div>
       {/if}
     </div>
+
+    <div class="stat-row snapshots-row">
+      <div class="stat-label">
+        <span class="codicon codicon-package stat-icon"></span>
+        Active Snapshots
+      </div>
+      <div class="stat-value">
+        {#if snapshotsLoading}
+          <span class="stat-loading">Loading...</span>
+        {:else if snapshotsAvailable}
+          <span class="stat-current">{devHub.snapshots?.activeCount}</span>
+          <span class="stat-separator">/</span>
+          <span class="stat-max">{devHub.snapshots?.totalCount}</span>
+        {:else}
+          <span class="stat-unavailable">Not available</span>
+        {/if}
+      </div>
+    </div>
   </div>
 
   <div class="card-footer">
     <span class="status-badge connected">Connected</span>
-    <span class="view-hint">Click to view scratch orgs →</span>
+    <span class="view-hint">Click to view details →</span>
   </div>
 </button>
 
@@ -345,6 +367,19 @@
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
     font-style: italic;
+  }
+
+  .stat-unavailable {
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.7;
+  }
+
+  .snapshots-row {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--vscode-widget-border);
   }
 
   .progress-bar {

@@ -17,6 +17,7 @@ export interface DevHubInfo {
   orgType: OrgType;
   edition?: string;
   limits: ScratchOrgLimits;
+  snapshots?: SnapshotsInfo;
 }
 
 export interface ScratchOrgInfo {
@@ -34,6 +35,31 @@ export interface ScratchOrgInfo {
   signupUsername?: string;
   createdBy?: string;
   isExpired: boolean;
+}
+
+export interface SnapshotInfo {
+  id: string;
+  ownerName: string;
+  isDeleted: boolean;
+  createdDate: string;
+  snapshotName: string;
+  sourceOrg: string;
+  content: string;
+  status: string;
+  provider: string;
+  providerSnapshot: string;
+  error: string;
+  providerSnapshotVersion: string;
+  expirationDate: string;
+  description: string;
+}
+
+export type SnapshotStatus = "available" | "unavailable" | "loading";
+
+export interface SnapshotsInfo {
+  status: SnapshotStatus;
+  activeCount: number;
+  totalCount: number;
 }
 
 export interface VsCodeApi {

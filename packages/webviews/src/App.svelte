@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { DevHubInfo, ScratchOrgLimits } from "./lib/types";
+  import type { DevHubInfo, ScratchOrgLimits, SnapshotsInfo } from "./lib/types";
   import { postMessage } from "./lib/vscode";
   import DevHubCard from "./components/DevHubCard.svelte";
-  import ScratchOrgList from "./components/ScratchOrgList.svelte";
+  import DevHubDetailView from "./components/DevHubDetailView.svelte";
 
-  type View = "dashboard" | "scratchOrgs";
+  type View = "dashboard" | "detail";
 
   let currentView = $state<View>("dashboard");
   let devHubs = $state<DevHubInfo[]>([]);
@@ -12,9 +12,9 @@
   let error = $state<string | null>(null);
   let selectedDevHub = $state<DevHubInfo | null>(null);
 
-  function showScratchOrgs(devHub: DevHubInfo) {
+  function showDevHubDetail(devHub: DevHubInfo) {
     selectedDevHub = devHub;
-    currentView = "scratchOrgs";
+    currentView = "detail";
   }
 
   function goBackToDashboard() {
@@ -60,6 +60,15 @@
           );
           break;
 
+        case "devHubSnapshotsInfoLoaded":
+          // Update the specific DevHub's snapshots info progressively
+          devHubs = devHubs.map((hub) =>
+            hub.username === message.username
+              ? { ...hub, snapshots: message.snapshotsInfo as SnapshotsInfo }
+              : hub
+          );
+          break;
+
         case "devHubRefreshed":
           // Update the specific DevHub's limits
           devHubs = devHubs.map((hub) =>
@@ -70,9 +79,9 @@
           break;
 
         case "showScratchOrgsView":
-          // Open scratch orgs view directly from sidebar
+          // Open detail view directly from sidebar
           const devHubData = message.devHub;
-          // Create a minimal DevHubInfo for the scratch org list
+          // Create a minimal DevHubInfo for the detail view
           selectedDevHub = {
             username: devHubData.username,
             orgId: "",
@@ -87,8 +96,13 @@
               dailyScratchOrgs: -1,
               maxDailyScratchOrgs: -1,
             },
+            snapshots: {
+              status: "loading",
+              activeCount: 0,
+              totalCount: 0,
+            },
           };
-          currentView = "scratchOrgs";
+          currentView = "detail";
           break;
       }
     };
@@ -158,14 +172,14 @@
           </div>
           <div class="devhub-grid">
             {#each devHubs as devHub (devHub.username)}
-              <DevHubCard {devHub} onclick={() => showScratchOrgs(devHub)} />
+              <DevHubCard {devHub} onclick={() => showDevHubDetail(devHub)} />
             {/each}
           </div>
         </section>
       {/if}
     </main>
-  {:else if currentView === "scratchOrgs" && selectedDevHub}
-    <ScratchOrgList devHub={selectedDevHub} onback={goBackToDashboard} />
+  {:else if currentView === "detail" && selectedDevHub}
+    <DevHubDetailView devHub={selectedDevHub} onback={goBackToDashboard} />
   {/if}
 </div>
 
