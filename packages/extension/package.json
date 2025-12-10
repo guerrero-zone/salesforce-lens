@@ -17,10 +17,11 @@
     "Other"
   ],
   "keywords": [
-    "Salesforce",
     "DevOps",
+    "Salesforce",
+    "Salesforce Management",
     "Scratch Orgs",
-    "Salesforce Management"
+    "Snapshots"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
