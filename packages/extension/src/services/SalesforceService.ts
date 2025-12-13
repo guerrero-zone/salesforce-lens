@@ -3,6 +3,58 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
+/**
+ * Simple in-memory cache with TTL support
+ */
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  isRefreshing?: boolean;
+}
+
+class SimpleCache<T> {
+  private cache = new Map<string, CacheEntry<T>>();
+  private readonly ttlMs: number;
+
+  constructor(ttlSeconds: number = 30) {
+    this.ttlMs = ttlSeconds * 1000;
+  }
+
+  get(key: string): { data: T; isStale: boolean } | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    const isStale = Date.now() - entry.timestamp > this.ttlMs;
+    return { data: entry.data, isStale };
+  }
+
+  set(key: string, data: T): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  markRefreshing(key: string): void {
+    const entry = this.cache.get(key);
+    if (entry) {
+      entry.isRefreshing = true;
+    }
+  }
+
+  isRefreshing(key: string): boolean {
+    return this.cache.get(key)?.isRefreshing ?? false;
+  }
+
+  invalidate(key: string): void {
+    this.cache.delete(key);
+  }
+
+  invalidateAll(): void {
+    this.cache.clear();
+  }
+}
+
 export type OrgType = "Production" | "Sandbox" | "Scratch" | "Unknown";
 
 export interface OrgInfo {
@@ -199,11 +251,27 @@ interface SfSnapshotCountResult {
   };
 }
 
+// Callback types for streaming updates
+export type DevHubsLoadedCallback = (devHubs: OrgInfo[]) => void;
+export type EditionLoadedCallback = (username: string, edition: string | undefined) => void;
+export type LimitsLoadedCallback = (username: string, limits: ScratchOrgLimits, error?: boolean) => void;
+export type SnapshotsInfoLoadedCallback = (username: string, snapshotsInfo: SnapshotsInfo) => void;
+
 export class SalesforceService {
   private execOptions: ExecOptions = {
     maxBuffer: 1024 * 1024 * 10, // 10MB buffer
     timeout: 60000, // 60 second timeout
   };
+
+  // Caches with appropriate TTLs
+  private orgsCache = new SimpleCache<{
+    devHubs: OrgInfo[];
+    scratchOrgs: ScratchOrgInfo[];
+    otherOrgs: OrgInfo[];
+  }>(60); // 60 seconds for org list
+  private limitsCache = new SimpleCache<ScratchOrgLimits>(30); // 30 seconds for limits
+  private snapshotsInfoCache = new SimpleCache<SnapshotsInfo>(60); // 60 seconds for snapshots info
+  private editionsCache = new SimpleCache<string | undefined>(300); // 5 minutes for editions (rarely changes)
 
   /**
    * Execute a Salesforce CLI command and return parsed JSON result
@@ -221,13 +289,32 @@ export class SalesforceService {
   }
 
   /**
-   * Get all authorized orgs from the CLI
+   * Invalidate all caches (useful when data changes, e.g., after delete)
    */
-  async getAuthorizedOrgs(): Promise<{
+  invalidateCache(): void {
+    this.orgsCache.invalidateAll();
+    this.limitsCache.invalidateAll();
+    this.snapshotsInfoCache.invalidateAll();
+  }
+
+  /**
+   * Get all authorized orgs from the CLI (with caching)
+   */
+  async getAuthorizedOrgs(forceRefresh = false): Promise<{
     devHubs: OrgInfo[];
     scratchOrgs: ScratchOrgInfo[];
     otherOrgs: OrgInfo[];
   }> {
+    const cacheKey = "orgs";
+    
+    // Check cache first
+    if (!forceRefresh) {
+      const cached = this.orgsCache.get(cacheKey);
+      if (cached && !cached.isStale) {
+        return cached.data;
+      }
+    }
+
     const result = await this.execSfCommand<SfOrgListResult>(
       "sf org list --json"
     );
@@ -309,25 +396,36 @@ export class SalesforceService {
           orgType: determineOrgType(org.instanceUrl),
         })) || [];
 
-    return { devHubs, scratchOrgs, otherOrgs };
+    const data = { devHubs, scratchOrgs, otherOrgs };
+    this.orgsCache.set(cacheKey, data);
+    return data;
   }
 
   /**
-   * Get the edition of an org by querying the Organization object
+   * Get the edition of an org by querying the Organization object (with caching)
    */
   async getOrgEdition(username: string): Promise<string | undefined> {
+    // Check cache first
+    const cached = this.editionsCache.get(username);
+    if (cached && !cached.isStale) {
+      return cached.data;
+    }
+
     try {
       const query = "SELECT OrganizationType FROM Organization LIMIT 1";
       const result = await this.execSfCommand<SfOrganizationQueryResult>(
         `sf data query --query "${query}" --target-org "${username}" --json`
       );
 
+      let edition: string | undefined;
       if (result.result.records.length > 0) {
-        return result.result.records[0].OrganizationType;
+        edition = result.result.records[0].OrganizationType;
       }
-      return undefined;
+      this.editionsCache.set(username, edition);
+      return edition;
     } catch {
       console.warn(`Could not fetch edition for org: ${username}`);
+      this.editionsCache.set(username, undefined);
       return undefined;
     }
   }
@@ -361,9 +459,19 @@ export class SalesforceService {
   }
 
   /**
-   * Get scratch org limits for a specific DevHub
+   * Get scratch org limits for a specific DevHub (with caching)
    */
-  async getDevHubLimits(devHubUsername: string): Promise<ScratchOrgLimits> {
+  async getDevHubLimits(devHubUsername: string, forceRefresh = false): Promise<ScratchOrgLimits> {
+    const cacheKey = `limits:${devHubUsername}`;
+    
+    // Check cache first
+    if (!forceRefresh) {
+      const cached = this.limitsCache.get(cacheKey);
+      if (cached && !cached.isStale) {
+        return cached.data;
+      }
+    }
+
     try {
       const result = await this.execSfCommand<SfLimitsResult>(
         `sf org list limits --target-org "${devHubUsername}" --json`
@@ -377,7 +485,7 @@ export class SalesforceService {
         (l) => l.name === "DailyScratchOrgs"
       );
 
-      return {
+      const data: ScratchOrgLimits = {
         activeScratchOrgs: activeScratchOrgLimit
           ? activeScratchOrgLimit.max - activeScratchOrgLimit.remaining
           : 0,
@@ -387,14 +495,18 @@ export class SalesforceService {
           : 0,
         maxDailyScratchOrgs: dailyScratchOrgLimit?.max || 0,
       };
+      
+      this.limitsCache.set(cacheKey, data);
+      return data;
     } catch {
       console.warn(`Could not fetch limits for DevHub: ${devHubUsername}`);
-      return {
+      const fallback: ScratchOrgLimits = {
         activeScratchOrgs: 0,
         maxActiveScratchOrgs: 0,
         dailyScratchOrgs: 0,
         maxDailyScratchOrgs: 0,
       };
+      return fallback;
     }
   }
 
@@ -524,14 +636,32 @@ export class SalesforceService {
       }
     }
 
+    // Invalidate limits cache for affected DevHubs since counts changed
+    if (success.length > 0) {
+      const affectedDevHubs = new Set(scratchOrgs.map(o => o.devHubUsername));
+      for (const devHub of affectedDevHubs) {
+        this.limitsCache.invalidate(`limits:${devHub}`);
+      }
+    }
+
     return { success, failed };
   }
 
   /**
-   * Get snapshot counts for a DevHub (for dashboard card)
+   * Get snapshot counts for a DevHub (for dashboard card) - with caching
    * Returns unavailable status if snapshots are not enabled or user lacks permissions
    */
-  async getSnapshotsInfo(devHubUsername: string): Promise<SnapshotsInfo> {
+  async getSnapshotsInfo(devHubUsername: string, forceRefresh = false): Promise<SnapshotsInfo> {
+    const cacheKey = `snapshots-info:${devHubUsername}`;
+    
+    // Check cache first
+    if (!forceRefresh) {
+      const cached = this.snapshotsInfoCache.get(cacheKey);
+      if (cached && !cached.isStale) {
+        return cached.data;
+      }
+    }
+
     try {
       // Query for active snapshots count
       const activeQuery = `SELECT COUNT(Id) FROM OrgSnapshot WHERE Status = 'Active'`;
@@ -545,15 +675,24 @@ export class SalesforceService {
         `sf data query --query "${totalQuery}" --target-org "${devHubUsername}" --json`
       );
 
-      return {
+      const data: SnapshotsInfo = {
         status: "available",
         activeCount: activeResult.result.records[0]?.expr0 || 0,
         totalCount: totalResult.result.records[0]?.expr0 || 0,
       };
+      
+      this.snapshotsInfoCache.set(cacheKey, data);
+      return data;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       // Check if it's an access/permission error or object doesn't exist
+      const unavailableData: SnapshotsInfo = {
+        status: "unavailable",
+        activeCount: 0,
+        totalCount: 0,
+      };
+      
       if (
         errorMessage.includes("sObject type 'OrgSnapshot' is not supported") ||
         errorMessage.includes("INVALID_TYPE") ||
@@ -564,22 +703,16 @@ export class SalesforceService {
         console.warn(
           `Snapshots not available for DevHub ${devHubUsername}: ${errorMessage}`
         );
-        return {
-          status: "unavailable",
-          activeCount: 0,
-          totalCount: 0,
-        };
+        this.snapshotsInfoCache.set(cacheKey, unavailableData);
+        return unavailableData;
       }
       // For other errors, also return unavailable
       console.error(
         `Salesforce Service: Failed to fetch snapshots info for ${devHubUsername}:`,
         errorMessage
       );
-      return {
-        status: "unavailable",
-        activeCount: 0,
-        totalCount: 0,
-      };
+      this.snapshotsInfoCache.set(cacheKey, unavailableData);
+      return unavailableData;
     }
   }
 
@@ -637,6 +770,202 @@ export class SalesforceService {
       }
       // throw error;
       return { snapshots: [], status: "unavailable" };
+    }
+  }
+
+  /**
+   * Stream DevHubs data progressively with callbacks for each update.
+   * This method optimizes perceived performance by:
+   * 1. Immediately sending cached data if available
+   * 2. Sending DevHubs list as soon as it's available
+   * 3. Streaming editions, limits, and snapshots info as they load in parallel
+   */
+  async streamDevHubsData(callbacks: {
+    onDevHubsLoaded: DevHubsLoadedCallback;
+    onEditionLoaded: EditionLoadedCallback;
+    onLimitsLoaded: LimitsLoadedCallback;
+    onSnapshotsInfoLoaded: SnapshotsInfoLoadedCallback;
+    onComplete?: () => void;
+    onError?: (error: string) => void;
+  }): Promise<void> {
+    try {
+      // Check if we have cached org data
+      const cachedOrgs = this.orgsCache.get("orgs");
+      if (cachedOrgs) {
+        // Send cached data immediately for instant UI update
+        callbacks.onDevHubsLoaded(cachedOrgs.data.devHubs);
+        
+        // Send cached editions immediately
+        for (const devHub of cachedOrgs.data.devHubs) {
+          const cachedEdition = this.editionsCache.get(devHub.username);
+          if (cachedEdition) {
+            callbacks.onEditionLoaded(devHub.username, cachedEdition.data);
+          }
+        }
+        
+        // Send cached limits and snapshots immediately
+        for (const devHub of cachedOrgs.data.devHubs) {
+          const cachedLimits = this.limitsCache.get(`limits:${devHub.username}`);
+          if (cachedLimits) {
+            callbacks.onLimitsLoaded(devHub.username, cachedLimits.data);
+          }
+          
+          const cachedSnapshots = this.snapshotsInfoCache.get(`snapshots-info:${devHub.username}`);
+          if (cachedSnapshots) {
+            callbacks.onSnapshotsInfoLoaded(devHub.username, cachedSnapshots.data);
+          }
+        }
+        
+        // If data is stale, refresh in background
+        if (cachedOrgs.isStale) {
+          this.refreshDevHubsInBackground(callbacks);
+        } else {
+          callbacks.onComplete?.();
+        }
+        return;
+      }
+
+      // No cache - fetch fresh data
+      await this.fetchAndStreamDevHubs(callbacks);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      callbacks.onError?.(errorMessage);
+    }
+  }
+
+  /**
+   * Fetch and stream DevHubs data from fresh API calls
+   */
+  private async fetchAndStreamDevHubs(callbacks: {
+    onDevHubsLoaded: DevHubsLoadedCallback;
+    onEditionLoaded: EditionLoadedCallback;
+    onLimitsLoaded: LimitsLoadedCallback;
+    onSnapshotsInfoLoaded: SnapshotsInfoLoadedCallback;
+    onComplete?: () => void;
+    onError?: (error: string) => void;
+  }): Promise<void> {
+    // Get DevHubs list first (fast operation)
+    const { devHubs } = await this.getAuthorizedOrgs();
+    
+    // Send DevHubs immediately
+    callbacks.onDevHubsLoaded(devHubs);
+
+    if (devHubs.length === 0) {
+      callbacks.onComplete?.();
+      return;
+    }
+
+    // Fetch editions, limits, and snapshots info IN PARALLEL for all DevHubs
+    const promises: Promise<void>[] = [];
+
+    for (const devHub of devHubs) {
+      // Edition fetch
+      promises.push(
+        this.getOrgEdition(devHub.username)
+          .then((edition) => {
+            callbacks.onEditionLoaded(devHub.username, edition);
+          })
+          .catch(() => {
+            callbacks.onEditionLoaded(devHub.username, undefined);
+          })
+      );
+
+      // Limits fetch
+      promises.push(
+        this.getDevHubLimits(devHub.username)
+          .then((limits) => {
+            callbacks.onLimitsLoaded(devHub.username, limits);
+          })
+          .catch(() => {
+            callbacks.onLimitsLoaded(devHub.username, {
+              activeScratchOrgs: 0,
+              maxActiveScratchOrgs: 0,
+              dailyScratchOrgs: 0,
+              maxDailyScratchOrgs: 0,
+            }, true);
+          })
+      );
+
+      // Snapshots info fetch
+      promises.push(
+        this.getSnapshotsInfo(devHub.username)
+          .then((snapshotsInfo) => {
+            callbacks.onSnapshotsInfoLoaded(devHub.username, snapshotsInfo);
+          })
+          .catch(() => {
+            callbacks.onSnapshotsInfoLoaded(devHub.username, {
+              status: "unavailable",
+              activeCount: 0,
+              totalCount: 0,
+            });
+          })
+      );
+    }
+
+    // Wait for all parallel fetches to complete
+    await Promise.all(promises);
+    callbacks.onComplete?.();
+  }
+
+  /**
+   * Refresh DevHubs data in background (when cache is stale)
+   */
+  private async refreshDevHubsInBackground(callbacks: {
+    onDevHubsLoaded: DevHubsLoadedCallback;
+    onEditionLoaded: EditionLoadedCallback;
+    onLimitsLoaded: LimitsLoadedCallback;
+    onSnapshotsInfoLoaded: SnapshotsInfoLoadedCallback;
+    onComplete?: () => void;
+    onError?: (error: string) => void;
+  }): Promise<void> {
+    try {
+      // Force refresh of org list
+      const { devHubs } = await this.getAuthorizedOrgs(true);
+      callbacks.onDevHubsLoaded(devHubs);
+
+      if (devHubs.length === 0) {
+        callbacks.onComplete?.();
+        return;
+      }
+
+      // Refresh all data in parallel
+      const promises: Promise<void>[] = [];
+
+      for (const devHub of devHubs) {
+        promises.push(
+          this.getOrgEdition(devHub.username)
+            .then((edition) => callbacks.onEditionLoaded(devHub.username, edition))
+            .catch(() => callbacks.onEditionLoaded(devHub.username, undefined))
+        );
+
+        promises.push(
+          this.getDevHubLimits(devHub.username, true)
+            .then((limits) => callbacks.onLimitsLoaded(devHub.username, limits))
+            .catch(() => callbacks.onLimitsLoaded(devHub.username, {
+              activeScratchOrgs: 0,
+              maxActiveScratchOrgs: 0,
+              dailyScratchOrgs: 0,
+              maxDailyScratchOrgs: 0,
+            }, true))
+        );
+
+        promises.push(
+          this.getSnapshotsInfo(devHub.username, true)
+            .then((info) => callbacks.onSnapshotsInfoLoaded(devHub.username, info))
+            .catch(() => callbacks.onSnapshotsInfoLoaded(devHub.username, {
+              status: "unavailable",
+              activeCount: 0,
+              totalCount: 0,
+            }))
+        );
+      }
+
+      await Promise.all(promises);
+      callbacks.onComplete?.();
+    } catch (error) {
+      // Background refresh failed - not critical since we already showed cached data
+      console.warn("Background refresh failed:", error);
+      callbacks.onComplete?.();
     }
   }
 }

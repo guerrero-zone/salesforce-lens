@@ -3,14 +3,17 @@
 
   interface Props {
     edition: string | undefined;
+    loading?: boolean;
   }
 
-  let { edition }: Props = $props();
+  let { edition, loading = false }: Props = $props();
 
   const badge = $derived(getEditionBadge(edition));
 </script>
 
-{#if badge.text}
+{#if loading}
+  <span class="edition-badge-skeleton"></span>
+{:else if badge.text}
   <span class="edition-badge {badge.class}">{badge.text}</span>
 {/if}
 
@@ -22,6 +25,32 @@
     border-radius: 3px;
     font-weight: 500;
     flex-shrink: 0;
+  }
+
+  .edition-badge-skeleton {
+    display: inline-block;
+    width: 52px;
+    height: 16px;
+    background: linear-gradient(
+      90deg,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 0%,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 25%,
+      var(--vscode-editor-selectionBackground, rgba(128, 128, 128, 0.25)) 50%,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 75%,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 100%
+    );
+    background-size: 200% 100%;
+    border-radius: 3px;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   /* Developer Edition - Blue/Cyan tones */

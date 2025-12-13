@@ -10,6 +10,7 @@
   let currentView = $state<View>("dashboard");
   let devHubs = $state<DevHubInfo[]>([]);
   let loading = $state(true);
+  let isLoadingDetails = $state(false); // Track if limits/editions/snapshots are still loading
   let error = $state<string | null>(null);
   let selectedDevHub = $state<DevHubInfo | null>(null);
 
@@ -23,11 +24,12 @@
     selectedDevHub = null;
   }
 
-  function loadDevHubs() {
+  function loadDevHubs(forceRefresh = false) {
     loading = true;
     error = null;
     devHubs = [];
-    postMessage({ command: "getDevHubs" });
+    isLoadingDetails = true;
+    postMessage({ command: "getDevHubs", forceRefresh });
   }
 
   // Listen for messages from extension
@@ -40,16 +42,28 @@
           loading = true;
           error = null;
           devHubs = [];
+          isLoadingDetails = true;
           break;
 
         case "devHubsData":
           devHubs = message.devHubs;
           loading = false;
+          isLoadingDetails = true; // Still loading editions/limits/snapshots
           break;
 
         case "devHubsError":
           error = message.error;
           loading = false;
+          isLoadingDetails = false;
+          break;
+
+        case "devHubEditionLoaded":
+          // Update the specific DevHub's edition progressively
+          devHubs = devHubs.map((hub) =>
+            hub.username === message.username
+              ? { ...hub, edition: message.edition }
+              : hub
+          );
           break;
 
         case "devHubLimitsLoaded":
@@ -77,6 +91,10 @@
               ? { ...hub, limits: message.limits }
               : hub
           );
+          break;
+
+        case "loadingComplete":
+          isLoadingDetails = false;
           break;
 
         case "showScratchOrgsView":
@@ -108,7 +126,16 @@
       }
     };
 
+    // Handle visibility changes - refresh when becoming visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Request fresh data when becoming visible (will use cache if not stale)
+        postMessage({ command: "getDevHubs", forceRefresh: false });
+      }
+    };
+
     window.addEventListener("message", handleMessage);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     
     // Notify extension that webview is ready
     postMessage({ command: "webviewReady" });
@@ -117,6 +144,7 @@
 
     return () => {
       window.removeEventListener("message", handleMessage);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   });
 </script>
@@ -131,8 +159,8 @@
         </div>
         <p class="tagline">Manage your Scratch Org ecosystem</p>
       </div>
-      <button class="refresh-button" onclick={loadDevHubs} disabled={loading} title="Refresh DevHubs">
-        <span class="codicon codicon-refresh" class:spinning={loading}></span>
+      <button class="refresh-button" onclick={() => loadDevHubs(true)} disabled={loading} title="Refresh DevHubs">
+        <span class="codicon codicon-refresh" class:spinning={loading || isLoadingDetails}></span>
         Refresh
       </button>
     </header>

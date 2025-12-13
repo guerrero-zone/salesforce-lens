@@ -14,6 +14,10 @@
   // Check if limits are still loading (-1 indicates loading)
   const limitsLoading = $derived(devHub.limits.activeScratchOrgs === -1);
 
+  // Check if edition is loading (undefined and no edition loaded yet)
+  // We consider it loading if limits are also loading (they arrive together on initial load)
+  const editionLoading = $derived(devHub.edition === undefined && limitsLoading);
+
   // Check snapshots status
   const snapshotsLoading = $derived(!devHub.snapshots || devHub.snapshots.status === "loading");
   const snapshotsAvailable = $derived(devHub.snapshots?.status === "available");
@@ -27,7 +31,7 @@
     <div class="org-info">
       <div class="org-name-row">
         <h3 class="org-name">{formatDisplayName(devHub)}</h3>
-        <EditionBadge edition={devHub.edition} />
+        <EditionBadge edition={devHub.edition} loading={editionLoading} />
       </div>
       <span class="org-username">{devHub.username}</span>
       {#if devHub.aliases.length > 1}

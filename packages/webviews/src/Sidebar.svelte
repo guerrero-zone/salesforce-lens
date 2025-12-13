@@ -7,12 +7,13 @@
   let devHubs = $state<SidebarDevHubInfo[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let isLoadingEditions = $state(false);
 
-  function loadDevHubs() {
+  function loadDevHubs(forceRefresh = false) {
     loading = true;
     error = null;
     devHubs = [];
-    postMessage({ command: "getDevHubs" });
+    postMessage({ command: "getDevHubs", forceRefresh });
   }
 
   function openDashboard() {
@@ -38,25 +39,59 @@
           loading = true;
           error = null;
           devHubs = [];
+          isLoadingEditions = true;
           break;
 
         case "devHubsData":
-          devHubs = message.devHubs;
+          // Mark all DevHubs as loading editions initially (always show skeleton first)
+          devHubs = message.devHubs.map((hub: SidebarDevHubInfo) => ({
+            ...hub,
+            editionLoading: true, // Always start with loading state
+          }));
           loading = false;
+          isLoadingEditions = true;
+          break;
+
+        case "devHubEditionLoaded":
+          // Update the specific DevHub's edition progressively and mark as not loading
+          devHubs = devHubs.map((hub) =>
+            hub.username === message.username
+              ? { ...hub, edition: message.edition, editionLoading: false }
+              : hub
+          );
+          // Check if all editions are loaded
+          if (devHubs.every(hub => !hub.editionLoading)) {
+            isLoadingEditions = false;
+          }
           break;
 
         case "devHubsError":
           error = message.error;
           loading = false;
+          isLoadingEditions = false;
+          break;
+
+        case "loadingComplete":
+          isLoadingEditions = false;
           break;
       }
     };
 
+    // Handle visibility changes - refresh when becoming visible if data might be stale
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Request fresh data when becoming visible
+        postMessage({ command: "getDevHubs", forceRefresh: false });
+      }
+    };
+
     window.addEventListener("message", handleMessage);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     loadDevHubs();
 
     return () => {
       window.removeEventListener("message", handleMessage);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   });
 </script>
@@ -78,11 +113,11 @@
     <span>DevHub Organizations</span>
     <button
       class="refresh-btn"
-      onclick={loadDevHubs}
+      onclick={() => loadDevHubs(true)}
       disabled={loading}
       title="Refresh"
     >
-      <span class="codicon codicon-refresh" class:spinning={loading}></span>
+      <span class="codicon codicon-refresh" class:spinning={loading || isLoadingEditions}></span>
     </button>
   </div>
 

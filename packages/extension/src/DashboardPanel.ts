@@ -178,7 +178,7 @@ export class DashboardPanel {
         return;
 
       case "getDevHubs":
-        await this._sendDevHubs();
+        await this._sendDevHubs(message.forceRefresh);
         return;
 
       case "getScratchOrgs":
@@ -233,84 +233,70 @@ export class DashboardPanel {
     });
   }
 
-  private async _sendDevHubs(): Promise<void> {
+  private async _sendDevHubs(forceRefresh = false): Promise<void> {
     try {
       this._postMessage({ command: "devHubsLoading" });
 
-      // First, get the list of DevHubs with editions
-      const devHubsList: OrgInfo[] =
-        await salesforceService.getDevHubsListWithEdition();
+      // Invalidate cache if force refresh requested
+      if (forceRefresh) {
+        salesforceService.invalidateCache();
+      }
 
-      // Send initial list with placeholder limits
-      const initialDevHubs: DevHubInfo[] = devHubsList.map((hub) => ({
-        ...hub,
-        limits: {
-          activeScratchOrgs: -1, // -1 indicates loading
-          maxActiveScratchOrgs: -1,
-          dailyScratchOrgs: -1,
-          maxDailyScratchOrgs: -1,
-        },
-      }));
-
-      this._postMessage({ command: "devHubsData", devHubs: initialDevHubs });
-
-      // Now fetch limits and snapshots for each DevHub progressively
-      for (const devHub of devHubsList) {
-        // Fetch limits
-        try {
-          const limits = await salesforceService.getDevHubLimits(
-            devHub.username
-          );
-          this._postMessage({
-            command: "devHubLimitsLoaded",
-            username: devHub.username,
-            limits,
-          });
-        } catch (error) {
-          console.error(
-            `Failed to fetch limits for ${devHub.username}:`,
-            error
-          );
-          // Send error state for this DevHub's limits
-          this._postMessage({
-            command: "devHubLimitsLoaded",
-            username: devHub.username,
+      // Use the streaming method for progressive loading
+      // This sends cached data immediately if available, then updates progressively
+      await salesforceService.streamDevHubsData({
+        onDevHubsLoaded: (devHubs) => {
+          // Send DevHubs immediately with placeholder limits
+          const initialDevHubs: DevHubInfo[] = devHubs.map((hub) => ({
+            ...hub,
             limits: {
-              activeScratchOrgs: 0,
-              maxActiveScratchOrgs: 0,
-              dailyScratchOrgs: 0,
-              maxDailyScratchOrgs: 0,
+              activeScratchOrgs: -1, // -1 indicates loading
+              maxActiveScratchOrgs: -1,
+              dailyScratchOrgs: -1,
+              maxDailyScratchOrgs: -1,
             },
-            error: true,
+          }));
+          this._postMessage({
+            command: "devHubsData",
+            devHubs: initialDevHubs,
           });
-        }
-
-        // Fetch snapshots info (count for card display)
-        try {
-          const snapshotsInfo = await salesforceService.getSnapshotsInfo(
-            devHub.username
-          );
+        },
+        onEditionLoaded: (username, edition) => {
+          this._postMessage({
+            command: "devHubEditionLoaded",
+            username,
+            edition,
+          });
+        },
+        onLimitsLoaded: (username, limits, error) => {
+          this._postMessage({
+            command: "devHubLimitsLoaded",
+            username,
+            limits,
+            error,
+          });
+        },
+        onSnapshotsInfoLoaded: (username, snapshotsInfo) => {
           this._postMessage({
             command: "devHubSnapshotsInfoLoaded",
-            username: devHub.username,
+            username,
             snapshotsInfo,
           });
-        } catch (error) {
-          console.error(
-            `Failed to fetch snapshots info for ${devHub.username}:`,
-            error
-          );
+        },
+        onComplete: () => {
+          // Signal that all loading is complete
+          this._postMessage({ command: "loadingComplete" });
+        },
+        onError: (errorMessage) => {
           this._postMessage({
-            command: "devHubSnapshotsInfoLoaded",
-            username: devHub.username,
-            snapshotsInfo: {
-              status: "unavailable",
-              activeCount: 0,
-              totalCount: 0,
-            },
+            command: "devHubsError",
+            error: errorMessage,
           });
-        }
-      }
+          vscode.window.showErrorMessage(
+            `Failed to fetch DevHub information: ${errorMessage}`
+          );
+        },
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

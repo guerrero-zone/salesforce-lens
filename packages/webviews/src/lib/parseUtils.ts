@@ -7,6 +7,7 @@ export interface SidebarDevHubInfo {
   connectedStatus: string;
   orgType: string;
   edition?: string;
+  editionLoading?: boolean;
 }
 
 export const formatDisplayName = (devHub: SidebarDevHubInfo): string => {

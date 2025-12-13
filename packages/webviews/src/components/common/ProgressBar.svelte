@@ -53,18 +53,26 @@
 
   .progress-loading {
     height: 100%;
-    width: 30%;
-    background: var(--vscode-progressBar-background, var(--vscode-button-background));
+    width: 100%;
+    background: linear-gradient(
+      90deg,
+      var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2)) 0%,
+      var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2)) 25%,
+      var(--vscode-button-background) 50%,
+      var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2)) 75%,
+      var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2)) 100%
+    );
+    background-size: 200% 100%;
     border-radius: 2px;
-    animation: loading-slide 1s ease-in-out infinite;
+    animation: shimmer 1.5s ease-in-out infinite;
   }
 
-  @keyframes loading-slide {
+  @keyframes shimmer {
     0% {
-      transform: translateX(-100%);
+      background-position: 200% 0;
     }
     100% {
-      transform: translateX(400%);
+      background-position: -200% 0;
     }
   }
 

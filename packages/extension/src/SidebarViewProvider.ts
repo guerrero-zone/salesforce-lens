@@ -78,7 +78,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
           break;
 
         case "getDevHubs":
-          await this._sendDevHubs();
+          await this._sendDevHubs(message.forceRefresh);
           break;
 
         case "openScratchOrgs":
@@ -97,18 +97,43 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     this._sendDevHubs();
   }
 
-  private async _sendDevHubs(): Promise<void> {
+  private async _sendDevHubs(forceRefresh = false): Promise<void> {
     if (!this._view) return;
 
     try {
       this._view.webview.postMessage({ command: "devHubsLoading" });
-      const devHubs: OrgInfo[] =
-        await salesforceService.getDevHubsListWithEdition();
-      this._view.webview.postMessage({ command: "devHubsData", devHubs });
+
+      // Invalidate cache if force refresh requested
+      if (forceRefresh) {
+        salesforceService.invalidateCache();
+      }
+
+      // Use streaming for progressive loading - sidebar only needs DevHubs + editions
+      await salesforceService.streamDevHubsData({
+        onDevHubsLoaded: (devHubs) => {
+          // Send DevHubs immediately
+          this._view?.webview.postMessage({ command: "devHubsData", devHubs });
+        },
+        onEditionLoaded: (username, edition) => {
+          // Update edition progressively
+          this._view?.webview.postMessage({
+            command: "devHubEditionLoaded",
+            username,
+            edition,
+          });
+        },
+        // We don't need limits/snapshots in sidebar, but callbacks are required
+        onLimitsLoaded: () => {},
+        onSnapshotsInfoLoaded: () => {},
+        onComplete: () => {
+          // Signal that all loading is complete
+          this._view?.webview.postMessage({ command: "loadingComplete" });
+        },
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this._view.webview.postMessage({
+      this._view?.webview.postMessage({
         command: "devHubsError",
         error: errorMessage,
       });

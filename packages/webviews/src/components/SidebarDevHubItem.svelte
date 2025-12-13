@@ -11,7 +11,7 @@
   <div class="devhub-info">
     <div class="devhub-name">{formatDisplayName(devHub)}</div>
     <div class="devhub-username">{devHub.username}</div>
-    <EditionBadge edition={devHub.edition} />
+    <EditionBadge edition={devHub.edition} loading={devHub.editionLoading} />
   </div>
   <span class="chevron codicon codicon-chevron-right"></span>
 </button>
@@ -71,7 +71,8 @@
     font-family: var(--vscode-editor-font-family, monospace);
   }
 
-  .devhub-info :global(.edition-badge) {
+  .devhub-info :global(.edition-badge),
+  .devhub-info :global(.edition-badge-skeleton) {
     margin-top: 4px;
     width: fit-content;
   }

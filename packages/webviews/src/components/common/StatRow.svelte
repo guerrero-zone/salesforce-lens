@@ -29,7 +29,7 @@
   </div>
   <div class="stat-value">
     {#if loading}
-      <span class="stat-loading">{loadingText}</span>
+      <span class="stat-skeleton"></span>
     {:else if showUnavailable}
       <span class="stat-unavailable">{unavailableText}</span>
     {:else}
@@ -85,10 +85,30 @@
     font-size: 12px;
   }
 
-  .stat-loading {
-    color: var(--vscode-descriptionForeground);
-    font-size: 11px;
-    font-style: italic;
+  .stat-skeleton {
+    display: inline-block;
+    width: 48px;
+    height: 14px;
+    background: linear-gradient(
+      90deg,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 0%,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 25%,
+      var(--vscode-editor-selectionBackground, rgba(128, 128, 128, 0.25)) 50%,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 75%,
+      var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.15)) 100%
+    );
+    background-size: 200% 100%;
+    border-radius: 3px;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   .stat-unavailable {
