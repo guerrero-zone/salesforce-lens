@@ -3,6 +3,7 @@
   import { postMessage } from "./lib/vscode";
   import DevHubCard from "./components/DevHubCard.svelte";
   import DevHubDetailView from "./components/DevHubDetailView.svelte";
+  import { LoadingState, ErrorState, EmptyState } from "./components/common";
 
   type View = "dashboard" | "detail";
 
@@ -138,29 +139,25 @@
 
     <main class="dashboard-main">
       {#if loading && devHubs.length === 0}
-        <div class="loading-container">
-          <div class="loading-spinner"></div>
-          <h2>Loading DevHubs...</h2>
-          <p>Fetching your Salesforce organization data</p>
-        </div>
+        <LoadingState
+          message="Loading DevHubs..."
+          submessage="Fetching your Salesforce organization data"
+        />
       {:else if error}
-        <div class="error-container">
-          <span class="codicon codicon-warning error-icon"></span>
-          <h2>Failed to Load DevHubs</h2>
-          <p>{error}</p>
-          <button class="retry-button" onclick={loadDevHubs}>
-            Try Again
-          </button>
-        </div>
+        <ErrorState
+          title="Failed to Load DevHubs"
+          message={error}
+          onretry={loadDevHubs}
+        />
       {:else if devHubs.length === 0}
-        <div class="empty-container">
-          <span class="codicon codicon-inbox empty-icon"></span>
-          <h2>No DevHubs Found</h2>
-          <p>
-            It looks like you haven't authorized any DevHub orgs yet.
-          </p>
-          <code>sf org login web --set-default-dev-hub</code>
-        </div>
+        <EmptyState
+          title="No DevHubs Found"
+          message="It looks like you haven't authorized any DevHub orgs yet."
+        >
+          {#snippet children()}
+            <code>sf org login web --set-default-dev-hub</code>
+          {/snippet}
+        </EmptyState>
       {:else}
         <section class="devhub-section">
           <div class="section-header">
@@ -275,59 +272,7 @@
     padding: 16px;
   }
 
-  .loading-container,
-  .error-container,
-  .empty-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-    text-align: center;
-    padding: 32px;
-  }
-
-  .loading-spinner {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--vscode-widget-border);
-    border-top-color: var(--vscode-progressBar-background, var(--vscode-button-background));
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-bottom: 16px;
-  }
-
-  .loading-container h2,
-  .error-container h2,
-  .empty-container h2 {
-    margin: 0 0 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--vscode-foreground);
-  }
-
-  .loading-container p,
-  .error-container p,
-  .empty-container p {
-    margin: 0;
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    max-width: 320px;
-  }
-
-  .error-icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-    color: var(--vscode-errorForeground);
-  }
-
-  .empty-icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .empty-container code {
+  .dashboard-main :global(.empty-state code) {
     display: block;
     margin-top: 12px;
     padding: 8px 12px;
@@ -336,22 +281,6 @@
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 12px;
     color: var(--vscode-foreground);
-  }
-
-  .retry-button {
-    margin-top: 12px;
-    padding: 5px 12px;
-    background: var(--vscode-button-background);
-    border: none;
-    border-radius: 3px;
-    color: var(--vscode-button-foreground);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .retry-button:hover {
-    background: var(--vscode-button-hoverBackground);
   }
 
   .devhub-section {

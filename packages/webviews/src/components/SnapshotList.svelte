@@ -1,5 +1,8 @@
 <script lang="ts">
   import type { SnapshotInfo } from "../lib/types";
+  import { formatDate, formatDateTime, getDaysUntilExpiration, truncateText } from "../lib/dateUtils";
+  import { getSnapshotExpirationClass, getStatusClass } from "../lib/colorUtils";
+  import { SearchBox, SelectFilter, LoadingState, ErrorState, EmptyState } from "./common";
 
   interface Props {
     snapshots: SnapshotInfo[];
@@ -17,6 +20,15 @@
   const uniqueStatuses = $derived(() => {
     const statuses = new Set(snapshots.map((s) => s.status));
     return Array.from(statuses).sort();
+  });
+
+  // Build status filter options
+  const statusOptions = $derived.by(() => {
+    const options = [{ value: "all", label: "All" }];
+    for (const status of uniqueStatuses()) {
+      options.push({ value: status, label: status });
+    }
+    return options;
   });
 
   const filteredSnapshots = $derived.by(() => {
@@ -42,131 +54,57 @@
 
     return result;
   });
-
-  function formatDate(dateString: string): string {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }
-
-  function formatDateTime(dateString: string): string {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  function getStatusClass(status: string): string {
-    const statusLower = status.toLowerCase();
-    if (statusLower === "active") return "status-active";
-    if (statusLower === "error" || statusLower === "failed") return "status-error";
-    if (statusLower === "creating" || statusLower === "pending" || statusLower === "inprogress") return "status-pending";
-    if (statusLower === "deleted") return "status-deleted";
-    return "status-default";
-  }
-
-  function getDaysUntilExpiration(expirationDate: string): number | null {
-    if (!expirationDate) return null;
-    const expDate = new Date(expirationDate);
-    const today = new Date();
-    const diffTime = expDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
-
-  function getExpirationClass(expirationDate: string): string {
-    const days = getDaysUntilExpiration(expirationDate);
-    if (days === null) return "";
-    if (days <= 0) return "expired";
-    if (days <= 7) return "expiring-soon";
-    if (days <= 30) return "expiring-warning";
-    return "healthy";
-  }
-
-  function truncateText(text: string, maxLength: number): string {
-    if (!text || text.length <= maxLength) return text || "";
-    return text.substring(0, maxLength) + "...";
-  }
 </script>
 
 <div class="snapshot-list">
   {#if unavailable}
-    <div class="unavailable-state">
-      <span class="codicon codicon-lock unavailable-icon"></span>
-      <h3>Snapshots Not Available</h3>
-      <p>
-        Org snapshots are not enabled for this DevHub or you don't have permission to access them.
-      </p>
-    </div>
+    <EmptyState
+      icon="codicon-lock"
+      title="Snapshots Not Available"
+      message="Org snapshots are not enabled for this DevHub or you don't have permission to access them."
+    />
   {:else if loading}
-    <div class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>Loading snapshots...</p>
-    </div>
+    <LoadingState message="Loading snapshots..." />
   {:else if error}
-    <div class="error-state">
-      <span class="codicon codicon-warning error-icon"></span>
-      <h3>Failed to load snapshots</h3>
-      <p>{error}</p>
-    </div>
+    <ErrorState title="Failed to load snapshots" message={error} />
   {:else}
     <div class="controls">
-      <div class="search-box">
-        <span class="codicon codicon-search search-icon"></span>
-        <input
-          type="text"
-          placeholder="Search by name, owner, source org..."
-          bind:value={searchQuery}
-        />
-      </div>
+      <SearchBox
+        value={searchQuery}
+        placeholder="Search by name, owner, source org..."
+        onchange={(v) => (searchQuery = v)}
+      />
 
-      <div class="status-filter">
-        <label for="status-select" class="filter-label">
-          <span class="codicon codicon-filter"></span>
-          Status:
-        </label>
-        <select 
-          id="status-select"
-          class="status-select"
-          bind:value={filterStatus}
-        >
-          <option value="all">All</option>
-          {#each uniqueStatuses() as status}
-            <option value={status}>{status}</option>
-          {/each}
-        </select>
-      </div>
+      <SelectFilter
+        id="status-select"
+        label="Status:"
+        icon="codicon-filter"
+        value={filterStatus}
+        options={statusOptions}
+        onchange={(v) => (filterStatus = v)}
+      />
     </div>
 
     {#if filteredSnapshots.length === 0}
-      <div class="empty-state">
-        <span class="codicon codicon-package empty-icon"></span>
-        <h3>No snapshots found</h3>
-        <p>
-          {#if searchQuery || filterStatus !== "all"}
-            Try adjusting your search or filter criteria
-          {:else}
-            This DevHub doesn't have any org snapshots yet
-          {/if}
-        </p>
-      </div>
+      <EmptyState
+        icon="codicon-package"
+        title="No snapshots found"
+        message={searchQuery || filterStatus !== "all"
+          ? "Try adjusting your search or filter criteria"
+          : "This DevHub doesn't have any org snapshots yet"}
+      />
     {:else}
       <div class="snapshots-container">
         {#each filteredSnapshots as snapshot (snapshot.id)}
+          {@const daysUntilExp = getDaysUntilExpiration(snapshot.expirationDate)}
+          {@const expClass = getSnapshotExpirationClass(snapshot.expirationDate)}
+          {@const statusClass = getStatusClass(snapshot.status)}
           <div class="snapshot-card">
             <div class="snapshot-header">
               <div class="snapshot-name-row">
                 <span class="codicon codicon-package snapshot-icon"></span>
                 <h4 class="snapshot-name">{snapshot.snapshotName} <span class="snapshot-id monospace">({snapshot.id})</span></h4>
-                <span class="status-pill {getStatusClass(snapshot.status)}">{snapshot.status}</span>
+                <span class="status-pill {statusClass}">{snapshot.status}</span>
               </div>
               {#if snapshot.description}
                 <p class="snapshot-description">{truncateText(snapshot.description, 120)}</p>
@@ -204,13 +142,11 @@
                     <span class="codicon codicon-clock"></span>
                     Expires
                   </span>
-                  <span class="detail-value {getExpirationClass(snapshot.expirationDate)}">
+                  <span class="detail-value {expClass}">
                     {#if snapshot.expirationDate}
                       {formatDate(snapshot.expirationDate)}
-                      {#if getDaysUntilExpiration(snapshot.expirationDate) !== null}
-                        <span class="days-remaining">
-                          ({getDaysUntilExpiration(snapshot.expirationDate)}d)
-                        </span>
+                      {#if daysUntilExp !== null}
+                        <span class="days-remaining">({daysUntilExp}d)</span>
                       {/if}
                     {:else}
                       N/A
@@ -305,144 +241,6 @@
     gap: 8px;
     padding: 8px 0;
     flex-wrap: wrap;
-  }
-
-  .search-box {
-    position: relative;
-    flex: 1;
-    min-width: 180px;
-    max-width: 320px;
-  }
-
-  .search-icon {
-    position: absolute;
-    left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 14px;
-    color: var(--vscode-input-placeholderForeground);
-  }
-
-  .search-box input {
-    width: 100%;
-    padding: 5px 8px 5px 28px;
-    border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
-    border-radius: 3px;
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    font-size: 12px;
-    font-family: inherit;
-  }
-
-  .search-box input:focus {
-    outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
-    border-color: var(--vscode-focusBorder);
-  }
-
-  .search-box input::placeholder {
-    color: var(--vscode-input-placeholderForeground);
-  }
-
-  .status-filter {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .filter-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    white-space: nowrap;
-  }
-
-  .filter-label .codicon {
-    font-size: 12px;
-  }
-
-  .status-select {
-    padding: 4px 8px;
-    border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
-    border-radius: 3px;
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    min-width: 100px;
-  }
-
-  .status-select:focus {
-    outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
-    border-color: var(--vscode-focusBorder);
-  }
-
-  .loading-state,
-  .error-state,
-  .empty-state,
-  .unavailable-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-    text-align: center;
-  }
-
-  .loading-spinner {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--vscode-widget-border);
-    border-top-color: var(--vscode-progressBar-background, var(--vscode-button-background));
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-bottom: 12px;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .error-icon,
-  .empty-icon,
-  .unavailable-icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .error-icon {
-    color: var(--vscode-errorForeground);
-  }
-
-  .unavailable-icon {
-    color: var(--vscode-descriptionForeground);
-    opacity: 0.7;
-  }
-
-  .error-state h3,
-  .empty-state h3,
-  .unavailable-state h3 {
-    margin: 0 0 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--vscode-foreground);
-  }
-
-  .error-state p,
-  .empty-state p,
-  .unavailable-state p {
-    margin: 0;
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    max-width: 320px;
   }
 
   .snapshots-container {
@@ -656,6 +454,10 @@
     font-weight: 500;
   }
 
+  .monospace {
+    font-family: var(--vscode-editor-font-family, monospace);
+  }
+
   .list-footer {
     padding: 8px 0;
     border-top: 1px solid var(--vscode-widget-border);
@@ -667,4 +469,3 @@
     color: var(--vscode-descriptionForeground);
   }
 </style>
-

@@ -1,0 +1,399 @@
+/**
+ * Shared CSS styles used across multiple components.
+ * These styles are designed to work with Svelte's scoped CSS by using
+ * :global() when imported, or by being imported in app.css for global use.
+ */
+
+/* ============================================
+   Edition Badge Styles
+   Used in: DevHubCard, SidebarDevHubItem, EditionBadge
+   ============================================ */
+
+.edition-badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+/* Developer Edition - Blue/Cyan tones */
+.badge-developer {
+  background-color: rgba(0, 120, 212, 0.15);
+  color: var(--vscode-textLink-foreground, #3794ff);
+  border: 1px solid rgba(0, 120, 212, 0.3);
+}
+
+/* Enterprise Edition - Purple/Violet tones */
+.badge-enterprise {
+  background-color: rgba(136, 71, 210, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(136, 71, 210, 0.3);
+}
+
+/* Unlimited Edition - Gold/Amber tones */
+.badge-unlimited {
+  background-color: rgba(217, 164, 6, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(217, 164, 6, 0.3);
+}
+
+/* Professional Edition - Green tones */
+.badge-professional {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: var(--vscode-testing-iconPassed, #22c55e);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Partner Edition - Orange tones */
+.badge-partner {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+/* Performance Edition - Red/Rose tones */
+.badge-performance {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+/* Group/Team Edition - Teal tones */
+.badge-group {
+  background-color: rgba(20, 184, 166, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+/* Default badge for unknown editions */
+.badge-default {
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border: 1px solid var(--vscode-widget-border);
+}
+
+/* ============================================
+   Status Pill Styles
+   Used in: ScratchOrgContent, SnapshotList, StatusPill
+   ============================================ */
+
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-pill.status-active,
+.status-pill.active {
+  background: var(--vscode-testing-iconPassed, #22c55e);
+  color: white;
+}
+
+.status-pill.status-error,
+.status-pill.expired,
+.status-pill.error {
+  background: var(--vscode-errorForeground, #f14c4c);
+  color: white;
+}
+
+.status-pill.status-pending {
+  background: var(--vscode-editorWarning-foreground, #cca700);
+  color: black;
+}
+
+.status-pill.status-deleted {
+  background: var(--vscode-descriptionForeground);
+  color: white;
+  opacity: 0.7;
+}
+
+.status-pill.status-default {
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+/* ============================================
+   Expiration Status Styles
+   Used in: ScratchOrgContent, SnapshotList
+   ============================================ */
+
+.expiration-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.expiration-status.healthy {
+  color: var(--vscode-testing-iconPassed, #22c55e);
+}
+
+.expiration-status.warning,
+.expiration-status.expiring-warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.expiration-status.critical,
+.expiration-status.expiring-soon {
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.expiration-status.expired {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
+.days-remaining {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* ============================================
+   Progress Bar Styles
+   Used in: DevHubCard, ProgressBar
+   ============================================ */
+
+.progress-bar {
+  height: 4px;
+  background: var(--vscode-progressBar-background, rgba(128, 128, 128, 0.2));
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar .progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar .progress-loading {
+  height: 100%;
+  width: 30%;
+  background: var(--vscode-progressBar-background, var(--vscode-button-background));
+  border-radius: 2px;
+  animation: loading-slide 1s ease-in-out infinite;
+}
+
+/* ============================================
+   Loading Spinner Styles
+   Used in: LoadingState, various components
+   ============================================ */
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--vscode-widget-border);
+  border-top-color: var(--vscode-progressBar-background, var(--vscode-button-background));
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-spinner.small {
+  width: 20px;
+  height: 20px;
+}
+
+.loading-spinner.inline {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+}
+
+/* ============================================
+   Common Animations
+   ============================================ */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Common State Container Styles
+   Used in: LoadingState, ErrorState, EmptyState
+   ============================================ */
+
+.state-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.state-container .state-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.state-container .state-icon.error {
+  color: var(--vscode-errorForeground);
+}
+
+.state-container h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.state-container p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  max-width: 320px;
+}
+
+/* ============================================
+   Search Box Styles
+   Used in: SearchBox component
+   ============================================ */
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.search-box input {
+  width: 100%;
+  padding: 5px 8px 5px 28px;
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
+  border-radius: 3px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.search-box input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+  border-color: var(--vscode-focusBorder);
+}
+
+.search-box input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+/* ============================================
+   Button Styles
+   ============================================ */
+
+.btn-primary {
+  padding: 5px 12px;
+  background: var(--vscode-button-background);
+  border: none;
+  border-radius: 3px;
+  color: var(--vscode-button-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--vscode-button-secondaryBackground);
+  border: 1px solid var(--vscode-button-secondaryBackground);
+  border-radius: 3px;
+  color: var(--vscode-button-secondaryForeground);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--vscode-errorForeground, #f14c4c);
+  border: none;
+  border-radius: 3px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.monospace {
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.text-muted {
+  color: var(--vscode-descriptionForeground);
+}
+
+.text-small {
+  font-size: 11px;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+

@@ -1,17 +1,8 @@
 <script lang="ts">
   import { postMessage } from "./lib/vscode";
+  import type { SidebarDevHubInfo } from "./lib/parseUtils";
   import SidebarDevHubItem from "./components/SidebarDevHubItem.svelte";
-
-  interface SidebarDevHubInfo {
-    username: string;
-    orgId: string;
-    instanceUrl: string;
-    aliases: string[];
-    isDevHub: boolean;
-    connectedStatus: string;
-    orgType: string;
-    edition?: string;
-  }
+  import { LoadingState, ErrorState, EmptyState } from "./components/common";
 
   let devHubs = $state<SidebarDevHubInfo[]>([]);
   let loading = $state(true);
@@ -108,12 +99,15 @@
         <button class="retry-btn" onclick={loadDevHubs}>Retry</button>
       </div>
     {:else if devHubs.length === 0}
-      <div class="empty">
-        <span class="codicon codicon-inbox empty-icon"></span>
-        <p>No DevHubs found.</p>
-        <code>sf org login web</code>
-        <span class="hint">to authorize a DevHub</span>
-      </div>
+      <EmptyState
+        icon="codicon-inbox"
+        title="No DevHubs found."
+      >
+        {#snippet children()}
+          <code>sf org login web</code>
+          <span class="hint">to authorize a DevHub</span>
+        {/snippet}
+      </EmptyState>
     {:else}
       <div class="devhub-list">
         {#each devHubs as devHub (devHub.username)}
@@ -284,27 +278,20 @@
     background-color: var(--vscode-button-secondaryHoverBackground);
   }
 
-  .empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  .content :global(.empty-state) {
     padding: 24px 12px;
-    text-align: center;
-    color: var(--vscode-descriptionForeground);
   }
 
-  .empty-icon {
+  .content :global(.empty-state .state-icon) {
     font-size: 32px;
-    margin-bottom: 8px;
     opacity: 0.6;
   }
 
-  .empty p {
-    margin: 0 0 8px 0;
+  .content :global(.empty-state h3) {
     font-size: 12px;
   }
 
-  .empty code {
+  .content code {
     display: block;
     padding: 6px 10px;
     background: var(--vscode-textCodeBlock-background);
@@ -314,10 +301,10 @@
     color: var(--vscode-foreground);
   }
 
-  .empty .hint {
+  .hint {
     margin-top: 4px;
     font-size: 10px;
     opacity: 0.8;
+    color: var(--vscode-descriptionForeground);
   }
 </style>
-

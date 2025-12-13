@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { ScratchOrgInfo } from "../lib/types";
   import { postMessage } from "../lib/vscode";
+  import { formatDate, getDaysRemaining } from "../lib/dateUtils";
+  import { getExpirationClass } from "../lib/colorUtils";
+  import { SearchBox, FilterTabs, SelectFilter, LoadingState, ErrorState, EmptyState } from "./common";
 
   interface Props {
     scratchOrgs: ScratchOrgInfo[];
@@ -18,9 +21,24 @@
   let filterDuration = $state<"all" | "1" | "7" | "14" | "30">("all");
   let isDeleting = $state(false);
 
+  // Filter tab options
+  const statusTabs = [
+    { value: "active", label: "Active" },
+    { value: "expired", label: "Expired" },
+    { value: "all", label: "All" },
+  ];
+
+  // Duration filter options
+  const durationOptions = [
+    { value: "all", label: "All" },
+    { value: "1", label: "1 day" },
+    { value: "7", label: "7 days" },
+    { value: "14", label: "14 days" },
+    { value: "30", label: "30 days" },
+  ];
+
   // Reset selection when scratchOrgs change (e.g., different devhub)
   $effect(() => {
-    // When scratchOrgs reference changes, reset selection
     scratchOrgs;
     selectedOrgs = new Set();
   });
@@ -38,10 +56,7 @@
     // Filter by duration days
     if (filterDuration !== "all") {
       const targetDuration = parseInt(filterDuration, 10);
-      result = result.filter((org) => {
-        const duration = org.durationDays;
-        return duration >= targetDuration;
-      });
+      result = result.filter((org) => org.durationDays >= targetDuration);
     }
 
     // Filter by search query
@@ -61,13 +76,10 @@
   });
 
   const allSelected = $derived(
-    filteredOrgs.length > 0 &&
-      filteredOrgs.every((org) => selectedOrgs.has(org.id))
+    filteredOrgs.length > 0 && filteredOrgs.every((org) => selectedOrgs.has(org.id))
   );
 
-  const someSelected = $derived(
-    selectedOrgs.size > 0 && !allSelected
-  );
+  const someSelected = $derived(selectedOrgs.size > 0 && !allSelected);
 
   function toggleSelectAll() {
     if (allSelected) {
@@ -99,31 +111,6 @@
       command: "deleteScratchOrgs",
       scratchOrgs: orgsToDelete,
     });
-  }
-
-  function formatDate(dateString: string): string {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }
-
-  function getDaysRemaining(expirationDate: string): number {
-    const expDate = new Date(expirationDate);
-    const today = new Date();
-    const diffTime = expDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
-
-  function getExpirationClass(expirationDate: string): string {
-    const days = getDaysRemaining(expirationDate);
-    if (days <= 0) return "expired";
-    if (days <= 3) return "critical";
-    if (days <= 7) return "warning";
-    return "healthy";
   }
 
   // Listen for delete messages from extension
@@ -158,56 +145,26 @@
 
 <div class="scratch-org-content">
   <div class="controls">
-    <div class="search-box">
-      <span class="codicon codicon-search search-icon"></span>
-      <input
-        type="text"
-        placeholder="Search by username, alias, creator..."
-        bind:value={searchQuery}
-      />
-    </div>
+    <SearchBox
+      value={searchQuery}
+      placeholder="Search by username, alias, creator..."
+      onchange={(v) => (searchQuery = v)}
+    />
 
-    <div class="filter-tabs">
-      <button
-        class="filter-tab"
-        class:active={filterStatus === "active"}
-        onclick={() => (filterStatus = "active")}
-      >
-        Active
-      </button>
-      <button
-        class="filter-tab"
-        class:active={filterStatus === "expired"}
-        onclick={() => (filterStatus = "expired")}
-      >
-        Expired
-      </button>
-      <button
-        class="filter-tab"
-        class:active={filterStatus === "all"}
-        onclick={() => (filterStatus = "all")}
-      >
-        All
-      </button>
-    </div>
+    <FilterTabs
+      tabs={statusTabs}
+      value={filterStatus}
+      onchange={(v) => (filterStatus = v as "active" | "expired" | "all")}
+    />
 
-    <div class="duration-filter">
-      <label for="duration-select" class="duration-label">
-        <span class="codicon codicon-calendar"></span>
-        Duration:
-      </label>
-      <select 
-        id="duration-select"
-        class="duration-select"
-        bind:value={filterDuration}
-      >
-        <option value="all">All</option>
-        <option value="1">1 day</option>
-        <option value="7">7 days</option>
-        <option value="14">14 days</option>
-        <option value="30">30 days</option>
-      </select>
-    </div>
+    <SelectFilter
+      id="duration-select"
+      label="Duration:"
+      icon="codicon-calendar"
+      value={filterDuration}
+      options={durationOptions}
+      onchange={(v) => (filterDuration = v as "all" | "1" | "7" | "14" | "30")}
+    />
 
     {#if selectedOrgs.size > 0}
       <button
@@ -227,31 +184,20 @@
   </div>
 
   {#if loading}
-    <div class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>Loading scratch orgs...</p>
-    </div>
+    <LoadingState message="Loading scratch orgs..." />
   {:else if error}
-    <div class="error-state">
-      <span class="codicon codicon-warning error-icon"></span>
-      <h3>Failed to load scratch orgs</h3>
-      <p>{error}</p>
-      <button class="retry-button" onclick={onretry}>
-        Try Again
-      </button>
-    </div>
+    <ErrorState
+      title="Failed to load scratch orgs"
+      message={error}
+      {onretry}
+    />
   {:else if filteredOrgs.length === 0}
-    <div class="empty-state">
-      <span class="codicon codicon-inbox empty-icon"></span>
-      <h3>No scratch orgs found</h3>
-      <p>
-        {#if searchQuery || filterStatus !== "all"}
-          Try adjusting your search or filter criteria
-        {:else}
-          This DevHub doesn't have any scratch orgs yet
-        {/if}
-      </p>
-    </div>
+    <EmptyState
+      title="No scratch orgs found"
+      message={searchQuery || filterStatus !== "all"
+        ? "Try adjusting your search or filter criteria"
+        : "This DevHub doesn't have any scratch orgs yet"}
+    />
   {:else}
     <div class="org-table-container">
       <table class="org-table">
@@ -276,6 +222,8 @@
         </thead>
         <tbody>
           {#each filteredOrgs as org (org.id)}
+            {@const daysRemaining = getDaysRemaining(org.expirationDate)}
+            {@const expirationClass = getExpirationClass(org.expirationDate)}
             <tr
               class:selected={selectedOrgs.has(org.id)}
               class:expired={org.isExpired}
@@ -308,12 +256,10 @@
               </td>
               <td class="date-cell">{formatDate(org.createdDate)}</td>
               <td class="date-cell">
-                <span class="expiration {getExpirationClass(org.expirationDate)}">
+                <span class="expiration {expirationClass}">
                   {formatDate(org.expirationDate)}
                   {#if !org.isExpired}
-                    <span class="days-remaining">
-                      ({getDaysRemaining(org.expirationDate)}d)
-                    </span>
+                    <span class="days-remaining">({daysRemaining}d)</span>
                   {/if}
                 </span>
               </td>
@@ -346,110 +292,6 @@
     gap: 8px;
     padding: 8px 0;
     flex-wrap: wrap;
-  }
-
-  .search-box {
-    position: relative;
-    flex: 1;
-    min-width: 180px;
-    max-width: 320px;
-  }
-
-  .search-icon {
-    position: absolute;
-    left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 14px;
-    color: var(--vscode-input-placeholderForeground);
-  }
-
-  .search-box input {
-    width: 100%;
-    padding: 5px 8px 5px 28px;
-    border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
-    border-radius: 3px;
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    font-size: 12px;
-    font-family: inherit;
-  }
-
-  .search-box input:focus {
-    outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
-    border-color: var(--vscode-focusBorder);
-  }
-
-  .search-box input::placeholder {
-    color: var(--vscode-input-placeholderForeground);
-  }
-
-  .filter-tabs {
-    display: flex;
-    border: 1px solid var(--vscode-widget-border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .filter-tab {
-    padding: 4px 10px;
-    border: none;
-    background: transparent;
-    color: var(--vscode-foreground);
-    font-size: 12px;
-    cursor: pointer;
-    border-right: 1px solid var(--vscode-widget-border);
-  }
-
-  .filter-tab:last-child {
-    border-right: none;
-  }
-
-  .filter-tab:hover {
-    background: var(--vscode-list-hoverBackground);
-  }
-
-  .filter-tab.active {
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-  }
-
-  .duration-filter {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .duration-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    white-space: nowrap;
-  }
-
-  .duration-label .codicon {
-    font-size: 12px;
-  }
-
-  .duration-select {
-    padding: 4px 8px;
-    border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
-    border-radius: 3px;
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    min-width: 80px;
-  }
-
-  .duration-select:focus {
-    outline: 1px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
-    border-color: var(--vscode-focusBorder);
   }
 
   .delete-button {
@@ -493,70 +335,6 @@
     to {
       transform: rotate(360deg);
     }
-  }
-
-  .loading-state,
-  .error-state,
-  .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-    text-align: center;
-  }
-
-  .loading-spinner {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--vscode-widget-border);
-    border-top-color: var(--vscode-progressBar-background, var(--vscode-button-background));
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-bottom: 12px;
-  }
-
-  .error-icon,
-  .empty-icon {
-    font-size: 48px;
-    margin-bottom: 12px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .error-icon {
-    color: var(--vscode-errorForeground);
-  }
-
-  .error-state h3,
-  .empty-state h3 {
-    margin: 0 0 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--vscode-foreground);
-  }
-
-  .error-state p,
-  .empty-state p {
-    margin: 0;
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .retry-button {
-    margin-top: 12px;
-    padding: 5px 12px;
-    background: var(--vscode-button-background);
-    border: none;
-    border-radius: 3px;
-    color: var(--vscode-button-foreground);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .retry-button:hover {
-    background: var(--vscode-button-hoverBackground);
   }
 
   .org-table-container {
@@ -733,4 +511,3 @@
     color: var(--vscode-descriptionForeground);
   }
 </style>
-
