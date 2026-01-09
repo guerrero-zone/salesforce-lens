@@ -29,12 +29,10 @@ export interface ScratchOrgInfo {
   durationDays: number;
   expirationDate: string;
   devHubUsername: string;
-  status: string;
   createdDate: string;
   edition?: string;
   signupUsername?: string;
   createdBy?: string;
-  isExpired: boolean;
 }
 
 export interface SnapshotInfo {

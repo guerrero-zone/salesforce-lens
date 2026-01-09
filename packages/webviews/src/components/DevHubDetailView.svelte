@@ -34,9 +34,7 @@
   });
 
   // Active scratch orgs count
-  const activeScratchOrgsCount = $derived(
-    scratchOrgs.filter((org) => !org.isExpired && org.status === "Active").length
-  );
+  const activeScratchOrgsCount = $derived(scratchOrgs.length);
 
   // Overall loading state - only considers scratch orgs if snapshots are unavailable
   const isLoading = $derived(

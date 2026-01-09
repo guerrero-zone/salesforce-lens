@@ -110,11 +110,13 @@ export interface DevHubInfo extends OrgInfo {
 }
 
 export interface ScratchOrgInfo {
-  id: string; // The ScratchOrgInfo record Id (for deletion)
+  // Identifier used by the UI for selection + deletion.
+  // For DevHub scratch orgs this will be the ActiveScratchOrg record Id.
   username: string;
   orgId: string;
   instanceUrl: string;
   alias?: string;
+  durationDays: number;
   expirationDate: string;
   devHubUsername: string;
   status: string;
@@ -167,23 +169,26 @@ interface SfLimitsResult {
   }>;
 }
 
-interface SfScratchOrgListResult {
+interface SfActiveScratchOrgQueryResult {
   result: {
     records: Array<{
-      Id: string;
-      OrgName?: string;
-      SignupUsername: string;
-      SignupEmail: string;
-      Edition: string;
-      Status: string;
-      DurationDays: number;
-      ExpirationDate: string;
-      CreatedDate: string;
-      CreatedBy?: {
-        Name: string;
-        Username: string;
+      Id: string; // ActiveScratchOrg Id
+      ScratchOrg?: string; // OrgId
+      ScratchOrgInfoId?: string;
+      ScratchOrgInfo?: {
+        OrgName?: string;
+        SignupUsername?: string;
+        SignupEmail?: string;
+        Edition?: string;
+        Status?: string;
+        DurationDays?: number;
+        ExpirationDate?: string;
+        CreatedDate?: string;
+        CreatedBy?: {
+          Name?: string;
+          Username?: string;
+        };
       };
-      ScratchOrg?: string;
     }>;
   };
 }
@@ -484,6 +489,7 @@ export class SalesforceService {
         orgId: org.orgId,
         instanceUrl: org.instanceUrl,
         alias: org.alias,
+        durationDays: 0,
         expirationDate: org.expirationDate,
         devHubUsername: org.devHubUsername || "",
         status: org.status,
@@ -650,28 +656,47 @@ export class SalesforceService {
     devHubUsername: string
   ): Promise<ScratchOrgInfo[]> {
     try {
-      const query = `SELECT Id, OrgName, SignupUsername, SignupEmail, Edition, Status, DurationDays, ExpirationDate, CreatedDate, CreatedBy.Name, CreatedBy.Username, ScratchOrg FROM ScratchOrgInfo WHERE Status != 'Deleted' ORDER BY CreatedDate DESC`;
+      // ActiveScratchOrg only contains *active* scratch orgs. We pull the same display data
+      // via the ScratchOrgInfo relationship in a single SOQL query.
+      const query =
+        "SELECT Id, ScratchOrg, ScratchOrgInfoId, " +
+        "ScratchOrgInfo.OrgName, ScratchOrgInfo.SignupUsername, ScratchOrgInfo.SignupEmail, " +
+        "ScratchOrgInfo.Edition, ScratchOrgInfo.Status, ScratchOrgInfo.DurationDays, " +
+        "ScratchOrgInfo.ExpirationDate, ScratchOrgInfo.CreatedDate, " +
+        "ScratchOrgInfo.CreatedBy.Name, ScratchOrgInfo.CreatedBy.Username " +
+        "FROM ActiveScratchOrg " +
+        "ORDER BY ScratchOrgInfo.CreatedDate DESC";
 
-      const result = await this.execSfCommand<SfScratchOrgListResult>(
+      const result = await this.execSfCommand<SfActiveScratchOrgQueryResult>(
         `sf data query --query "${query}" --target-org "${devHubUsername}" --json`
       );
 
-      return result.result.records.map((record) => ({
-        id: record.Id, // This is the ScratchOrgInfo record Id needed for deletion
-        username: record.SignupUsername,
-        orgId: record.ScratchOrg || record.Id,
-        instanceUrl: "",
-        alias: record.OrgName || undefined,
-        durationDays: record.DurationDays,
-        expirationDate: record.ExpirationDate,
-        devHubUsername,
-        status: record.Status,
-        createdDate: record.CreatedDate,
-        edition: record.Edition,
-        signupUsername: record.SignupUsername,
-        createdBy: record.CreatedBy?.Name || record.CreatedBy?.Username,
-        isExpired: new Date(record.ExpirationDate) < new Date(),
-      }));
+      return result.result.records.map((record) => {
+        const info = record.ScratchOrgInfo;
+        const expirationDate = info?.ExpirationDate || "";
+        const createdDate = info?.CreatedDate || "";
+        const isExpired = expirationDate
+          ? new Date(expirationDate) < new Date()
+          : false;
+
+        return {
+          // Use ActiveScratchOrg.Id so deletion can be a single `sf data delete record`
+          id: record.Id,
+          username: info?.SignupUsername || "",
+          orgId: record.ScratchOrg || record.ScratchOrgInfoId || record.Id,
+          instanceUrl: "",
+          alias: info?.OrgName || undefined,
+          durationDays: info?.DurationDays ?? 0,
+          expirationDate,
+          devHubUsername,
+          status: info?.Status || "Active",
+          createdDate,
+          edition: info?.Edition,
+          signupUsername: info?.SignupUsername,
+          createdBy: info?.CreatedBy?.Name || info?.CreatedBy?.Username,
+          isExpired,
+        };
+      });
     } catch (error) {
       console.error(
         `Failed to fetch scratch orgs from DevHub ${devHubUsername}:`,
@@ -690,9 +715,17 @@ export class SalesforceService {
     devHubUsername: string
   ): Promise<void> {
     try {
-      // First, find the ActiveScratchOrg record by the ScratchOrgInfo Id or ScratchOrg field
-      const query = `SELECT Id FROM ActiveScratchOrg WHERE ScratchOrgInfoId = '${scratchOrgId}' OR ScratchOrg = '${scratchOrgId}'`;
+      // Preferred path: the UI passes ActiveScratchOrg.Id (single delete, no lookup).
+      try {
+        await this.execSfCommand(
+          `sf data delete record --sobject ActiveScratchOrg --record-id "${scratchOrgId}" --target-org "${devHubUsername}" --json`
+        );
+        return;
+      } catch {
+        // Fall back to legacy behavior (when UI passes ScratchOrgInfoId or ScratchOrg).
+      }
 
+      const query = `SELECT Id FROM ActiveScratchOrg WHERE ScratchOrgInfoId = '${scratchOrgId}' OR ScratchOrg = '${scratchOrgId}'`;
       const result = await this.execSfCommand<{
         result: { records: Array<{ Id: string }> };
       }>(
@@ -700,8 +733,8 @@ export class SalesforceService {
       );
 
       if (result.result.records.length === 0) {
-        // If no ActiveScratchOrg found, try to mark the ScratchOrgInfo as deleted
-        // by using sf org delete scratch if the org is locally authenticated
+        // If no ActiveScratchOrg found, try `sf org delete scratch` as a best-effort fallback
+        // for locally authenticated orgs.
         try {
           await this.execSfCommand(
             `sf org delete scratch --target-org "${scratchOrgId}" --target-dev-hub "${devHubUsername}" --no-prompt --json`
@@ -714,11 +747,8 @@ export class SalesforceService {
         }
       }
 
-      const activeScratchOrgId = result.result.records[0].Id;
-
-      // Delete the ActiveScratchOrg record - this will mark the scratch org for deletion
       await this.execSfCommand(
-        `sf data delete record --sobject ActiveScratchOrg --record-id "${activeScratchOrgId}" --target-org "${devHubUsername}" --json`
+        `sf data delete record --sobject ActiveScratchOrg --record-id "${result.result.records[0].Id}" --target-org "${devHubUsername}" --json`
       );
     } catch (error) {
       console.error(`Failed to delete scratch org ${scratchOrgId}:`, error);

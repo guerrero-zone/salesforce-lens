@@ -3,7 +3,7 @@
   import { postMessage } from "../lib/vscode";
   import { formatDate, getDaysRemaining } from "../lib/dateUtils";
   import { getExpirationClass } from "../lib/colorUtils";
-  import { SearchBox, FilterTabs, SelectFilter, LoadingState, ErrorState, EmptyState } from "./common";
+  import { SearchBox, SelectFilter, LoadingState, ErrorState, EmptyState } from "./common";
 
   interface Props {
     scratchOrgs: ScratchOrgInfo[];
@@ -17,16 +17,8 @@
 
   let searchQuery = $state("");
   let selectedOrgs = $state<Set<string>>(new Set());
-  let filterStatus = $state<"active" | "expired" | "all">("active");
   let filterDuration = $state<"all" | "1" | "7" | "14" | "30">("all");
   let isDeleting = $state(false);
-
-  // Filter tab options
-  const statusTabs = [
-    { value: "active", label: "Active" },
-    { value: "expired", label: "Expired" },
-    { value: "all", label: "All" },
-  ];
 
   // Duration filter options
   const durationOptions = [
@@ -45,13 +37,6 @@
 
   const filteredOrgs = $derived.by(() => {
     let result = scratchOrgs;
-
-    // Filter by status
-    if (filterStatus === "active") {
-      result = result.filter((org) => !org.isExpired && org.status === "Active");
-    } else if (filterStatus === "expired") {
-      result = result.filter((org) => org.isExpired || org.status !== "Active");
-    }
 
     // Filter by duration days
     if (filterDuration !== "all") {
@@ -151,12 +136,6 @@
       onchange={(v) => (searchQuery = v)}
     />
 
-    <FilterTabs
-      tabs={statusTabs}
-      value={filterStatus}
-      onchange={(v) => (filterStatus = v as "active" | "expired" | "all")}
-    />
-
     <SelectFilter
       id="duration-select"
       label="Duration:"
@@ -194,7 +173,7 @@
   {:else if filteredOrgs.length === 0}
     <EmptyState
       title="No scratch orgs found"
-      message={searchQuery || filterStatus !== "all"
+      message={searchQuery || filterDuration !== "all"
         ? "Try adjusting your search or filter criteria"
         : "This DevHub doesn't have any scratch orgs yet"}
     />
@@ -213,7 +192,6 @@
             </th>
             <th>Scratch Org</th>
             <th>Edition</th>
-            <th>Status</th>
             <th>Duration</th>
             <th>Created</th>
             <th>Expires</th>
@@ -226,7 +204,6 @@
             {@const expirationClass = getExpirationClass(org.expirationDate)}
             <tr
               class:selected={selectedOrgs.has(org.id)}
-              class:expired={org.isExpired}
             >
               <td class="checkbox-cell">
                 <input
@@ -246,11 +223,6 @@
               <td>
                 <span class="edition-badge">{org.edition || "N/A"}</span>
               </td>
-              <td>
-                <span class="status-pill" class:active={org.status === "Active"} class:expired={org.isExpired} class:error={org.status === "Error"}>
-                  {org.isExpired ? "Expired" : org.status}
-                </span>
-              </td>
               <td class="duration-cell">
                 <span class="duration-badge">{org.durationDays}d</span>
               </td>
@@ -258,9 +230,7 @@
               <td class="date-cell">
                 <span class="expiration {expirationClass}">
                   {formatDate(org.expirationDate)}
-                  {#if !org.isExpired}
-                    <span class="days-remaining">({daysRemaining}d)</span>
-                  {/if}
+                  <span class="days-remaining">({daysRemaining}d)</span>
                 </span>
               </td>
               <td class="creator-cell">{org.createdBy || "N/A"}</td>
@@ -382,10 +352,6 @@
     color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
   }
 
-  .org-table tr.expired {
-    opacity: 0.5;
-  }
-
   .checkbox-cell {
     width: 32px;
     text-align: center;
@@ -426,29 +392,6 @@
     color: var(--vscode-badge-foreground);
     border-radius: 3px;
     font-size: 11px;
-  }
-
-  .status-pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 500;
-  }
-
-  .status-pill.active {
-    background: var(--vscode-testing-iconPassed, #22c55e);
-    color: white;
-  }
-
-  .status-pill.expired {
-    background: var(--vscode-errorForeground, #f14c4c);
-    color: white;
-  }
-
-  .status-pill.error {
-    background: var(--vscode-editorWarning-foreground, #cca700);
-    color: black;
   }
 
   .duration-cell {
