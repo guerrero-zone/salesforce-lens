@@ -39,7 +39,6 @@ We can filter them by their status: Active or Expired.
 - Browse DevHub cards to see active/daily scratch‑org usage; click a card to drill into its scratch orgs.
 - In the scratch org list:
   - Search by username, alias, creator, or edition.
-  - Toggle **Active / Expired / All** filters.
   - Select multiple rows and click **Delete** to bulk-remove; confirmations and results are shown in-place.
 
 ## License
