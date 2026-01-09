@@ -17,8 +17,20 @@
 
   let searchQuery = $state("");
   let selectedOrgs = $state<Set<string>>(new Set());
-  let filterDuration = $state<"all" | "1" | "7" | "14" | "30">("all");
   let isDeleting = $state(false);
+
+  type SortKey =
+    | "scratchOrg"
+    | "edition"
+    | "durationDays"
+    | "createdDate"
+    | "expirationDate"
+    | "createdBy";
+  type SortDirection = "asc" | "desc";
+
+  // Default sort: soonest-expiring first (helps prioritize action)
+  let sortKey = $state<SortKey>("expirationDate");
+  let sortDirection = $state<SortDirection>("asc");
 
   // Duration filter options
   const durationOptions = [
@@ -26,8 +38,12 @@
     { value: "1", label: "1 day" },
     { value: "7", label: "7 days" },
     { value: "14", label: "14 days" },
+    { value: "21", label: "21 days" },
     { value: "30", label: "30 days" },
-  ];
+  ] as const;
+
+  type DurationFilter = (typeof durationOptions)[number]["value"];
+  let filterDuration = $state<DurationFilter>("all");
 
   // Reset selection when scratchOrgs change (e.g., different devhub)
   $effect(() => {
@@ -60,8 +76,66 @@
     return result;
   });
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDirection = "asc";
+    }
+  }
+
+  function getSortValue(org: ScratchOrgInfo, key: SortKey): string | number | null {
+    switch (key) {
+      case "scratchOrg":
+        // Matches what users visually identify first: alias > signup username > username
+        return (org.alias || org.signupUsername || org.username || "").toLowerCase();
+      case "edition":
+        return (org.edition || "").toLowerCase();
+      case "durationDays":
+        return Number.isFinite(org.durationDays) ? org.durationDays : null;
+      case "createdDate": {
+        const t = Date.parse(org.createdDate);
+        return Number.isFinite(t) ? t : null;
+      }
+      case "expirationDate": {
+        const t = Date.parse(org.expirationDate);
+        return Number.isFinite(t) ? t : null;
+      }
+      case "createdBy":
+        return (org.createdBy || "").toLowerCase();
+      default:
+        return null;
+    }
+  }
+
+  function compareSortValues(a: string | number | null, b: string | number | null): number {
+    // Always push "empty" values to the bottom regardless of direction
+    const aEmpty = a === null || a === "";
+    const bEmpty = b === null || b === "";
+    if (aEmpty && bEmpty) return 0;
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+
+    if (typeof a === "number" && typeof b === "number") return a - b;
+    return String(a).localeCompare(String(b), undefined, { sensitivity: "base" });
+  }
+
+  const visibleOrgs = $derived.by(() => {
+    const indexed = filteredOrgs.map((org, idx) => ({ org, idx }));
+    indexed.sort((a, b) => {
+      const aVal = getSortValue(a.org, sortKey);
+      const bVal = getSortValue(b.org, sortKey);
+      const base = compareSortValues(aVal, bVal);
+      if (base !== 0) return sortDirection === "asc" ? base : -base;
+      // Stable sort fallback
+      return a.idx - b.idx;
+    });
+    return indexed.map((x) => x.org);
+  });
+
   const allSelected = $derived(
-    filteredOrgs.length > 0 && filteredOrgs.every((org) => selectedOrgs.has(org.id))
+    visibleOrgs.length > 0 && visibleOrgs.every((org) => selectedOrgs.has(org.id))
   );
 
   const someSelected = $derived(selectedOrgs.size > 0 && !allSelected);
@@ -70,7 +144,7 @@
     if (allSelected) {
       selectedOrgs = new Set();
     } else {
-      selectedOrgs = new Set(filteredOrgs.map((org) => org.id));
+      selectedOrgs = new Set(visibleOrgs.map((org) => org.id));
     }
   }
 
@@ -142,7 +216,7 @@
       icon="codicon-calendar"
       value={filterDuration}
       options={durationOptions}
-      onchange={(v) => (filterDuration = v as "all" | "1" | "7" | "14" | "30")}
+      onchange={(v) => (filterDuration = v as DurationFilter)}
     />
 
     {#if selectedOrgs.size > 0}
@@ -190,16 +264,160 @@
                 onchange={toggleSelectAll}
               />
             </th>
-            <th>Scratch Org</th>
-            <th>Edition</th>
-            <th>Duration</th>
-            <th>Created</th>
-            <th>Expires</th>
-            <th>Created By</th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "scratchOrg"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "scratchOrg"}
+                onclick={() => toggleSort("scratchOrg")}
+                title="Sort by Scratch Org"
+              >
+                Scratch Org
+                <span class="sort-indicator" class:placeholder={sortKey !== "scratchOrg"}>
+                  <span
+                    class="codicon {sortKey === "scratchOrg" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "edition"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "edition"}
+                onclick={() => toggleSort("edition")}
+                title="Sort by Edition"
+              >
+                Edition
+                <span class="sort-indicator" class:placeholder={sortKey !== "edition"}>
+                  <span
+                    class="codicon {sortKey === "edition" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "durationDays"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "durationDays"}
+                onclick={() => toggleSort("durationDays")}
+                title="Sort by Duration"
+              >
+                Duration
+                <span class="sort-indicator" class:placeholder={sortKey !== "durationDays"}>
+                  <span
+                    class="codicon {sortKey === "durationDays" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "createdDate"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "createdDate"}
+                onclick={() => toggleSort("createdDate")}
+                title="Sort by Created date"
+              >
+                Created
+                <span class="sort-indicator" class:placeholder={sortKey !== "createdDate"}>
+                  <span
+                    class="codicon {sortKey === "createdDate" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "expirationDate"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "expirationDate"}
+                onclick={() => toggleSort("expirationDate")}
+                title="Sort by Expiration date"
+              >
+                Expires
+                <span class="sort-indicator" class:placeholder={sortKey !== "expirationDate"}>
+                  <span
+                    class="codicon {sortKey === "expirationDate" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "createdBy"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "createdBy"}
+                onclick={() => toggleSort("createdBy")}
+                title="Sort by Created By"
+              >
+                Created By
+                <span class="sort-indicator" class:placeholder={sortKey !== "createdBy"}>
+                  <span
+                    class="codicon {sortKey === "createdBy" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
-          {#each filteredOrgs as org (org.id)}
+          {#each visibleOrgs as org (org.id)}
             {@const daysRemaining = getDaysRemaining(org.expirationDate)}
             {@const expirationClass = getExpirationClass(org.expirationDate)}
             <tr
@@ -242,7 +460,7 @@
 
     <div class="table-footer">
       <span class="count-info">
-        Showing {filteredOrgs.length} of {scratchOrgs.length} scratch orgs
+        Showing {visibleOrgs.length} of {scratchOrgs.length} scratch orgs
       </span>
     </div>
   {/if}
@@ -328,6 +546,56 @@
     color: var(--vscode-foreground);
     border-bottom: 1px solid var(--vscode-widget-border);
     white-space: nowrap;
+  }
+
+  .org-table th.sortable {
+    padding: 0;
+  }
+
+  .sort-button {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 0;
+  }
+
+  .sort-button:hover {
+    background: var(--vscode-list-hoverBackground);
+  }
+
+  .sort-button:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+  }
+
+  .sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    width: 14px;
+    justify-content: center;
+    opacity: 0.75;
+  }
+
+  .sort-indicator.placeholder {
+    opacity: 0;
+  }
+
+  .sort-button.active .sort-indicator {
+    opacity: 1;
+    color: var(--vscode-foreground);
+  }
+
+  .sort-indicator .codicon {
+    font-size: 12px;
   }
 
   .org-table td {
@@ -429,10 +697,6 @@
 
   .expiration.critical {
     color: var(--vscode-errorForeground, #f14c4c);
-  }
-
-  .expiration.expired {
-    color: var(--vscode-descriptionForeground);
   }
 
   .days-remaining {

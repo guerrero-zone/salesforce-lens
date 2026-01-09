@@ -4,7 +4,7 @@
     label: string;
     icon?: string;
     value: string;
-    options: Array<{ value: string; label: string }>;
+    options: ReadonlyArray<{ value: string; label: string }>;
     onchange: (value: string) => void;
   }
 
