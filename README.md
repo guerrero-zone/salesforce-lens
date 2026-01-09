@@ -240,6 +240,7 @@ Before testing, ensure:
 
 - Dashboard view for Scratch Org management
 - Sidebar panel for quick access
+- Command Palette: open DevHub details by selecting a DevHub alias/username (`Salesforce Lens: Open DevHub Details`)
 
 ## Extension Settings
 

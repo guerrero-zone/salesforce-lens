@@ -1,4 +1,6 @@
 import { exec, ExecOptions } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
@@ -28,10 +30,10 @@ class SimpleCache<T> {
     return { data: entry.data, isStale };
   }
 
-  set(key: string, data: T): void {
+  set(key: string, data: T, timestamp: number = Date.now()): void {
     this.cache.set(key, {
       data,
-      timestamp: Date.now(),
+      timestamp,
     });
   }
 
@@ -253,15 +255,28 @@ interface SfSnapshotCountResult {
 
 // Callback types for streaming updates
 export type DevHubsLoadedCallback = (devHubs: OrgInfo[]) => void;
-export type EditionLoadedCallback = (username: string, edition: string | undefined) => void;
-export type LimitsLoadedCallback = (username: string, limits: ScratchOrgLimits, error?: boolean) => void;
-export type SnapshotsInfoLoadedCallback = (username: string, snapshotsInfo: SnapshotsInfo) => void;
+export type EditionLoadedCallback = (
+  username: string,
+  edition: string | undefined
+) => void;
+export type LimitsLoadedCallback = (
+  username: string,
+  limits: ScratchOrgLimits,
+  error?: boolean
+) => void;
+export type SnapshotsInfoLoadedCallback = (
+  username: string,
+  snapshotsInfo: SnapshotsInfo
+) => void;
 
 export class SalesforceService {
   private execOptions: ExecOptions = {
     maxBuffer: 1024 * 1024 * 10, // 10MB buffer
     timeout: 60000, // 60 second timeout
   };
+
+  // Optional persistent cache directory (provided by extension host)
+  private storageDir?: string;
 
   // Caches with appropriate TTLs
   private orgsCache = new SimpleCache<{
@@ -272,6 +287,78 @@ export class SalesforceService {
   private limitsCache = new SimpleCache<ScratchOrgLimits>(30); // 30 seconds for limits
   private snapshotsInfoCache = new SimpleCache<SnapshotsInfo>(60); // 60 seconds for snapshots info
   private editionsCache = new SimpleCache<string | undefined>(300); // 5 minutes for editions (rarely changes)
+
+  /**
+   * Provide a directory path for persistent caching (usually VS Code globalStorageUri.fsPath).
+   * This enables fast cold-start by hydrating in-memory cache from disk.
+   */
+  setStorageDir(storageDir: string): void {
+    this.storageDir = storageDir;
+    try {
+      fs.mkdirSync(storageDir, { recursive: true });
+    } catch (error) {
+      console.warn("Could not create storage directory for cache:", error);
+      this.storageDir = undefined;
+    }
+  }
+
+  private getOrgsCacheFilePath(): string | undefined {
+    if (!this.storageDir) return undefined;
+    return path.join(this.storageDir, "orgs-cache.json");
+  }
+
+  private loadPersistedOrgsCache(): {
+    timestamp: number;
+    data: {
+      devHubs: OrgInfo[];
+      scratchOrgs: ScratchOrgInfo[];
+      otherOrgs: OrgInfo[];
+    };
+  } | null {
+    const filePath = this.getOrgsCacheFilePath();
+    if (!filePath) return null;
+    try {
+      if (!fs.existsSync(filePath)) return null;
+      const raw = fs.readFileSync(filePath, "utf8");
+      const parsed = JSON.parse(raw) as {
+        timestamp: number;
+        data: {
+          devHubs: OrgInfo[];
+          scratchOrgs: ScratchOrgInfo[];
+          otherOrgs: OrgInfo[];
+        };
+      };
+
+      if (!parsed || typeof parsed.timestamp !== "number" || !parsed.data)
+        return null;
+      if (!Array.isArray(parsed.data.devHubs)) return null;
+      if (!Array.isArray(parsed.data.scratchOrgs)) return null;
+      if (!Array.isArray(parsed.data.otherOrgs)) return null;
+      return parsed;
+    } catch (error) {
+      console.warn("Failed to load persisted orgs cache:", error);
+      return null;
+    }
+  }
+
+  private savePersistedOrgsCache(data: {
+    devHubs: OrgInfo[];
+    scratchOrgs: ScratchOrgInfo[];
+    otherOrgs: OrgInfo[];
+  }): void {
+    const filePath = this.getOrgsCacheFilePath();
+    if (!filePath) return;
+    try {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify({ timestamp: Date.now(), data }, null, 2),
+        "utf8"
+      );
+    } catch (error) {
+      console.warn("Failed to save persisted orgs cache:", error);
+    }
+  }
 
   /**
    * Execute a Salesforce CLI command and return parsed JSON result
@@ -306,12 +393,35 @@ export class SalesforceService {
     otherOrgs: OrgInfo[];
   }> {
     const cacheKey = "orgs";
-    
+
     // Check cache first
     if (!forceRefresh) {
       const cached = this.orgsCache.get(cacheKey);
       if (cached && !cached.isStale) {
         return cached.data;
+      }
+    }
+
+    // Cold-start optimization: hydrate from persisted cache on disk
+    if (!forceRefresh) {
+      const persisted = this.loadPersistedOrgsCache();
+      if (persisted) {
+        this.orgsCache.set(cacheKey, persisted.data, persisted.timestamp);
+
+        // If persisted data is stale, refresh in background to keep UI snappy
+        const inMemory = this.orgsCache.get(cacheKey);
+        if (inMemory?.isStale && !this.orgsCache.isRefreshing(cacheKey)) {
+          this.orgsCache.markRefreshing(cacheKey);
+          this.getAuthorizedOrgs(true)
+            .then(() => {
+              // no-op; getAuthorizedOrgs(true) updates caches + persisted cache
+            })
+            .catch((error) => {
+              console.warn("Background org refresh failed:", error);
+            });
+        }
+
+        return persisted.data;
       }
     }
 
@@ -398,6 +508,7 @@ export class SalesforceService {
 
     const data = { devHubs, scratchOrgs, otherOrgs };
     this.orgsCache.set(cacheKey, data);
+    this.savePersistedOrgsCache(data);
     return data;
   }
 
@@ -461,9 +572,12 @@ export class SalesforceService {
   /**
    * Get scratch org limits for a specific DevHub (with caching)
    */
-  async getDevHubLimits(devHubUsername: string, forceRefresh = false): Promise<ScratchOrgLimits> {
+  async getDevHubLimits(
+    devHubUsername: string,
+    forceRefresh = false
+  ): Promise<ScratchOrgLimits> {
     const cacheKey = `limits:${devHubUsername}`;
-    
+
     // Check cache first
     if (!forceRefresh) {
       const cached = this.limitsCache.get(cacheKey);
@@ -495,7 +609,7 @@ export class SalesforceService {
           : 0,
         maxDailyScratchOrgs: dailyScratchOrgLimit?.max || 0,
       };
-      
+
       this.limitsCache.set(cacheKey, data);
       return data;
     } catch {
@@ -638,7 +752,7 @@ export class SalesforceService {
 
     // Invalidate limits cache for affected DevHubs since counts changed
     if (success.length > 0) {
-      const affectedDevHubs = new Set(scratchOrgs.map(o => o.devHubUsername));
+      const affectedDevHubs = new Set(scratchOrgs.map((o) => o.devHubUsername));
       for (const devHub of affectedDevHubs) {
         this.limitsCache.invalidate(`limits:${devHub}`);
       }
@@ -651,9 +765,12 @@ export class SalesforceService {
    * Get snapshot counts for a DevHub (for dashboard card) - with caching
    * Returns unavailable status if snapshots are not enabled or user lacks permissions
    */
-  async getSnapshotsInfo(devHubUsername: string, forceRefresh = false): Promise<SnapshotsInfo> {
+  async getSnapshotsInfo(
+    devHubUsername: string,
+    forceRefresh = false
+  ): Promise<SnapshotsInfo> {
     const cacheKey = `snapshots-info:${devHubUsername}`;
-    
+
     // Check cache first
     if (!forceRefresh) {
       const cached = this.snapshotsInfoCache.get(cacheKey);
@@ -680,7 +797,7 @@ export class SalesforceService {
         activeCount: activeResult.result.records[0]?.expr0 || 0,
         totalCount: totalResult.result.records[0]?.expr0 || 0,
       };
-      
+
       this.snapshotsInfoCache.set(cacheKey, data);
       return data;
     } catch (error) {
@@ -692,7 +809,7 @@ export class SalesforceService {
         activeCount: 0,
         totalCount: 0,
       };
-      
+
       if (
         errorMessage.includes("sObject type 'OrgSnapshot' is not supported") ||
         errorMessage.includes("INVALID_TYPE") ||
@@ -794,7 +911,7 @@ export class SalesforceService {
       if (cachedOrgs) {
         // Send cached data immediately for instant UI update
         callbacks.onDevHubsLoaded(cachedOrgs.data.devHubs);
-        
+
         // Send cached editions immediately
         for (const devHub of cachedOrgs.data.devHubs) {
           const cachedEdition = this.editionsCache.get(devHub.username);
@@ -802,20 +919,27 @@ export class SalesforceService {
             callbacks.onEditionLoaded(devHub.username, cachedEdition.data);
           }
         }
-        
+
         // Send cached limits and snapshots immediately
         for (const devHub of cachedOrgs.data.devHubs) {
-          const cachedLimits = this.limitsCache.get(`limits:${devHub.username}`);
+          const cachedLimits = this.limitsCache.get(
+            `limits:${devHub.username}`
+          );
           if (cachedLimits) {
             callbacks.onLimitsLoaded(devHub.username, cachedLimits.data);
           }
-          
-          const cachedSnapshots = this.snapshotsInfoCache.get(`snapshots-info:${devHub.username}`);
+
+          const cachedSnapshots = this.snapshotsInfoCache.get(
+            `snapshots-info:${devHub.username}`
+          );
           if (cachedSnapshots) {
-            callbacks.onSnapshotsInfoLoaded(devHub.username, cachedSnapshots.data);
+            callbacks.onSnapshotsInfoLoaded(
+              devHub.username,
+              cachedSnapshots.data
+            );
           }
         }
-        
+
         // If data is stale, refresh in background
         if (cachedOrgs.isStale) {
           this.refreshDevHubsInBackground(callbacks);
@@ -828,7 +952,8 @@ export class SalesforceService {
       // No cache - fetch fresh data
       await this.fetchAndStreamDevHubs(callbacks);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       callbacks.onError?.(errorMessage);
     }
   }
@@ -846,7 +971,7 @@ export class SalesforceService {
   }): Promise<void> {
     // Get DevHubs list first (fast operation)
     const { devHubs } = await this.getAuthorizedOrgs();
-    
+
     // Send DevHubs immediately
     callbacks.onDevHubsLoaded(devHubs);
 
@@ -877,12 +1002,16 @@ export class SalesforceService {
             callbacks.onLimitsLoaded(devHub.username, limits);
           })
           .catch(() => {
-            callbacks.onLimitsLoaded(devHub.username, {
-              activeScratchOrgs: 0,
-              maxActiveScratchOrgs: 0,
-              dailyScratchOrgs: 0,
-              maxDailyScratchOrgs: 0,
-            }, true);
+            callbacks.onLimitsLoaded(
+              devHub.username,
+              {
+                activeScratchOrgs: 0,
+                maxActiveScratchOrgs: 0,
+                dailyScratchOrgs: 0,
+                maxDailyScratchOrgs: 0,
+              },
+              true
+            );
           })
       );
 
@@ -934,29 +1063,41 @@ export class SalesforceService {
       for (const devHub of devHubs) {
         promises.push(
           this.getOrgEdition(devHub.username)
-            .then((edition) => callbacks.onEditionLoaded(devHub.username, edition))
+            .then((edition) =>
+              callbacks.onEditionLoaded(devHub.username, edition)
+            )
             .catch(() => callbacks.onEditionLoaded(devHub.username, undefined))
         );
 
         promises.push(
           this.getDevHubLimits(devHub.username, true)
             .then((limits) => callbacks.onLimitsLoaded(devHub.username, limits))
-            .catch(() => callbacks.onLimitsLoaded(devHub.username, {
-              activeScratchOrgs: 0,
-              maxActiveScratchOrgs: 0,
-              dailyScratchOrgs: 0,
-              maxDailyScratchOrgs: 0,
-            }, true))
+            .catch(() =>
+              callbacks.onLimitsLoaded(
+                devHub.username,
+                {
+                  activeScratchOrgs: 0,
+                  maxActiveScratchOrgs: 0,
+                  dailyScratchOrgs: 0,
+                  maxDailyScratchOrgs: 0,
+                },
+                true
+              )
+            )
         );
 
         promises.push(
           this.getSnapshotsInfo(devHub.username, true)
-            .then((info) => callbacks.onSnapshotsInfoLoaded(devHub.username, info))
-            .catch(() => callbacks.onSnapshotsInfoLoaded(devHub.username, {
-              status: "unavailable",
-              activeCount: 0,
-              totalCount: 0,
-            }))
+            .then((info) =>
+              callbacks.onSnapshotsInfoLoaded(devHub.username, info)
+            )
+            .catch(() =>
+              callbacks.onSnapshotsInfoLoaded(devHub.username, {
+                status: "unavailable",
+                activeCount: 0,
+                totalCount: 0,
+              })
+            )
         );
       }
 

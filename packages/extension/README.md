@@ -35,6 +35,7 @@ We can filter them by their status: Active or Expired.
 ## Usage
 
 - Open the **Salesforce Lens** view from the Activity Bar (cloud icon) or run `Salesforce Lens: Dashboard` from the Command Palette.
+- To open a DevHub details page directly from the Command Palette, run `Salesforce Lens: Open DevHub Details` and select the DevHub by **alias or username**.
 - Browse DevHub cards to see active/daily scratch‑org usage; click a card to drill into its scratch orgs.
 - In the scratch org list:
   - Search by username, alias, creator, or edition.

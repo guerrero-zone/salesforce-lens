@@ -1,9 +1,13 @@
 import * as vscode from "vscode";
 import { DashboardPanel } from "./DashboardPanel";
 import { SidebarViewProvider } from "./SidebarViewProvider";
+import { salesforceService } from "./services/SalesforceService";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Salesforce Lens is now active!");
+
+  // Enable persistent caching for faster cold-start DevHub loading
+  salesforceService.setStorageDir(context.globalStorageUri.fsPath);
 
   // Register the sidebar view provider
   const sidebarProvider = new SidebarViewProvider(context.extensionUri);
@@ -62,6 +66,84 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(openScratchOrgsCommand);
+
+  // Register command to open DevHub details from the Command Palette
+  const openDevHubDetailsCommand = vscode.commands.registerCommand(
+    "salesforce-lens.openDevHubDetails",
+    async () => {
+      try {
+        const devHubs = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "Salesforce Lens: Loading DevHubs...",
+            cancellable: false,
+          },
+          async () => salesforceService.getDevHubsList()
+        );
+
+        if (!devHubs || devHubs.length === 0) {
+          vscode.window.showWarningMessage(
+            "No DevHubs found. Make sure you have authorized a DevHub with the Salesforce CLI (sf)."
+          );
+          return;
+        }
+
+        type DevHubPickItem = vscode.QuickPickItem & {
+          username: string;
+          aliases: string[];
+          orgType: string;
+        };
+
+        const items: DevHubPickItem[] = devHubs
+          .slice()
+          .sort((a, b) => a.username.localeCompare(b.username))
+          .map((hub) => {
+            const hasAlias = hub.aliases && hub.aliases.length > 0;
+            const primaryAlias = hasAlias ? hub.aliases[0] : undefined;
+            const label = primaryAlias ?? hub.username;
+            const description = primaryAlias ? hub.username : undefined;
+            const detail =
+              hasAlias && hub.aliases.length > 1
+                ? `Aliases: ${hub.aliases.join(", ")}`
+                : undefined;
+
+            return {
+              label,
+              description,
+              detail,
+              username: hub.username,
+              aliases: hub.aliases ?? [],
+              orgType: hub.orgType,
+            };
+          });
+
+        const selected = await vscode.window.showQuickPick(items, {
+          title: "Select a DevHub (alias or username)",
+          placeHolder: "Choose a DevHub to open its details",
+          matchOnDescription: true,
+          matchOnDetail: true,
+        });
+
+        if (!selected) return;
+
+        await DashboardPanel.showScratchOrgsForDevHub(
+          context.extensionUri,
+          selected.username,
+          selected.aliases,
+          selected.orgType
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.error("Error opening DevHub details:", errorMessage);
+        vscode.window.showErrorMessage(
+          `Failed to open DevHub details: ${errorMessage}`
+        );
+      }
+    }
+  );
+
+  context.subscriptions.push(openDevHubDetailsCommand);
 
   // Register webview panel serializer for persistence
   if (vscode.window.registerWebviewPanelSerializer) {

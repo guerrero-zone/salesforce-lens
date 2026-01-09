@@ -2,7 +2,7 @@
   "name": "salesforce-lens",
   "displayName": "Salesforce Lens",
   "description": "Salesforce DevOps admin tool",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "publisher": "amguerrero",
   "icon": "resources/icon-marketplace.png",
   "repository": {
@@ -35,6 +35,10 @@
       {
         "command": "salesforce-lens.openScratchOrgs",
         "title": "Salesforce Lens: Open Scratch Orgs"
+      },
+      {
+        "command": "salesforce-lens.openDevHubDetails",
+        "title": "Salesforce Lens: Open DevHub Details"
       }
     ],
     "viewsContainers": {

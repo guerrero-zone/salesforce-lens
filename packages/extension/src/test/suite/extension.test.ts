@@ -1,4 +1,5 @@
 import * as assert from "assert";
+import * as path from "path";
 import * as vscode from "vscode";
 
 suite("Extension Test Suite", () => {
@@ -28,6 +29,22 @@ suite("Extension Test Suite", () => {
       assert.ok(
         commands.includes("salesforce-lens.dashboard"),
         "Dashboard command should be registered"
+      );
+    });
+
+    test("Open DevHub Details command should be registered", async () => {
+      // Ensure extension is activated by executing the command first
+      try {
+        await vscode.commands.executeCommand("salesforce-lens.dashboard");
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch {
+        // Ignore failures from opening UI during tests
+      }
+
+      const commands = await vscode.commands.getCommands(true);
+      assert.ok(
+        commands.includes("salesforce-lens.openDevHubDetails"),
+        "Open DevHub Details command should be registered"
       );
     });
   });
@@ -70,8 +87,8 @@ suite("SidebarViewProvider Test Suite", () => {
 
   test("SidebarViewProvider should be constructable", () => {
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
-    const mockUri = vscode.Uri.file("/mock/path");
-    const provider = new SidebarViewProvider(mockUri);
+    const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
+    const provider = new SidebarViewProvider(extensionRoot);
     assert.ok(provider, "SidebarViewProvider should be instantiated");
   });
 });
@@ -103,8 +120,9 @@ suite("Utility Functions", () => {
     // We can't directly test the private getNonce function, but we can test its output
     // by checking the HTML generated includes a nonce
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
-    const mockUri = vscode.Uri.file("/mock/path");
-    const provider = new SidebarViewProvider(mockUri);
+    // Use the real extension folder so webview assets (webviews/out) exist during tests
+    const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
+    const provider = new SidebarViewProvider(extensionRoot);
 
     // Create a mock webview
     const mockWebview = {
@@ -118,11 +136,8 @@ suite("Utility Functions", () => {
     // Access the private method using type assertion
     const html = (provider as any)._getHtmlForWebview(mockWebview);
 
-    // Check that nonce is present in CSP
-    assert.ok(
-      html.includes("script-src 'nonce-"),
-      "HTML should include nonce in CSP"
-    );
+    // Check that nonce is present in CSP (cspSource is included before the nonce)
+    assert.ok(html.includes("nonce-"), "HTML should include nonce in CSP");
 
     // Extract nonce and verify length
     const nonceMatch = html.match(/nonce-([a-zA-Z0-9]{32})/);
@@ -138,8 +153,8 @@ suite("Utility Functions", () => {
 suite("HTML Generation", () => {
   test("Sidebar HTML should contain required elements", () => {
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
-    const mockUri = vscode.Uri.file("/mock/path");
-    const provider = new SidebarViewProvider(mockUri);
+    const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
+    const provider = new SidebarViewProvider(extensionRoot);
 
     const mockWebview = {
       cspSource: "mock-csp-source",
@@ -154,30 +169,21 @@ suite("HTML Generation", () => {
     // Check for required elements
     assert.ok(html.includes("<!DOCTYPE html>"), "Should have DOCTYPE");
     assert.ok(
-      html.includes("<title>Salesforce Lens</title>"),
+      html.includes("<title>Salesforce Lens Sidebar</title>"),
       "Should have title"
     );
-    assert.ok(html.includes("Salesforce Lens"), "Should have heading");
-    assert.ok(
-      html.includes("Open Dashboard"),
-      "Should have Open Dashboard button"
-    );
-    assert.ok(html.includes("openDashboardBtn"), "Should have button ID");
-    assert.ok(
-      html.includes("acquireVsCodeApi"),
-      "Should have VS Code API acquisition"
-    );
-    assert.ok(html.includes("postMessage"), "Should have postMessage call");
+    assert.ok(html.includes('id="app"'), "Should have root app container");
     assert.ok(
       html.includes("Content-Security-Policy"),
       "Should have CSP meta tag"
     );
+    assert.ok(html.includes("nonce-"), "Should include a nonce");
   });
 
   test("Sidebar HTML should have proper CSP", () => {
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
-    const mockUri = vscode.Uri.file("/mock/path");
-    const provider = new SidebarViewProvider(mockUri);
+    const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
+    const provider = new SidebarViewProvider(extensionRoot);
 
     const mockWebview = {
       cspSource: "https://mock-csp-source",
@@ -202,8 +208,8 @@ suite("HTML Generation", () => {
 suite("Message Handling", () => {
   test("SidebarViewProvider should set up message handler", () => {
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
-    const mockUri = vscode.Uri.file("/mock/path");
-    const provider = new SidebarViewProvider(mockUri);
+    const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
+    const provider = new SidebarViewProvider(extensionRoot);
 
     let messageHandlerSet = false;
     const mockWebviewView = {
