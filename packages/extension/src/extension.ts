@@ -38,40 +38,34 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(dashboardCommand);
 
-  // Register command to open scratch orgs for a specific DevHub
-  const openScratchOrgsCommand = vscode.commands.registerCommand(
-    "salesforce-lens.openScratchOrgs",
-    async (
-      devHubUsername: string,
-      devHubAliases: string[],
-      orgType: string
-    ) => {
-      console.log("Open scratch orgs command executed for:", devHubUsername);
-      try {
-        await DashboardPanel.showScratchOrgsForDevHub(
-          context.extensionUri,
-          devHubUsername,
-          devHubAliases,
-          orgType
-        );
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        console.error("Error opening scratch orgs:", errorMessage);
-        vscode.window.showErrorMessage(
-          `Failed to open scratch orgs: ${errorMessage}`
-        );
-      }
-    }
-  );
-
-  context.subscriptions.push(openScratchOrgsCommand);
-
-  // Register command to open DevHub details from the Command Palette
+  // Register command to open DevHub details.
+  // If DevHub details are provided as arguments, use them directly;
+  // otherwise, prompt the user to select a DevHub.
   const openDevHubDetailsCommand = vscode.commands.registerCommand(
     "salesforce-lens.openDevHubDetails",
-    async () => {
+    async (
+      devHubUsername?: string,
+      devHubAliases?: string[],
+      orgType?: string
+    ) => {
       try {
+        // If all required arguments are provided, skip the QuickPick and
+        // open the scratch orgs view directly for the specified DevHub.
+        if (devHubUsername && devHubAliases && orgType) {
+          console.log(
+            "Open DevHub details command executed for:",
+            devHubUsername
+          );
+          await DashboardPanel.showScratchOrgsForDevHub(
+            context.extensionUri,
+            devHubUsername,
+            devHubAliases,
+            orgType
+          );
+          return;
+        }
+
+        // Otherwise, prompt the user to pick a DevHub.
         const devHubs = await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,

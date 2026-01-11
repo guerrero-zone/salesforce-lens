@@ -84,7 +84,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         case "openScratchOrgs":
           console.log("Opening scratch orgs for:", message.username);
           vscode.commands.executeCommand(
-            "salesforce-lens.openScratchOrgs",
+            "salesforce-lens.openDevHubDetails",
             message.username,
             message.aliases,
             message.orgType
