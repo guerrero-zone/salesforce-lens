@@ -3,18 +3,28 @@
   import { formatDate, formatDateTime, getDaysUntilExpiration, truncateText } from "../lib/dateUtils";
   import { getSnapshotExpirationClass, getStatusClass } from "../lib/colorUtils";
   import { SearchBox, SelectFilter, LoadingState, ErrorState, EmptyState } from "./common";
+  import { postMessage } from "../lib/vscode";
 
   interface Props {
     snapshots: SnapshotInfo[];
     loading: boolean;
     error: string | null;
     unavailable: boolean;
+    devHubUsername: string;
   }
 
-  let { snapshots, loading, error, unavailable }: Props = $props();
+  let { snapshots, loading, error, unavailable, devHubUsername }: Props = $props();
 
   let searchQuery = $state("");
   let filterStatus = $state<string>("all");
+  let selectedSnapshots = $state<Set<string>>(new Set());
+  let isDeleting = $state(false);
+
+  // Reset selection when snapshots change
+  $effect(() => {
+    snapshots;
+    selectedSnapshots = new Set();
+  });
 
   // Get unique statuses for filter dropdown
   const uniqueStatuses = $derived(() => {
@@ -54,6 +64,80 @@
 
     return result;
   });
+
+  const allSelected = $derived(
+    filteredSnapshots.length > 0 &&
+      filteredSnapshots.every((snapshot) => selectedSnapshots.has(snapshot.id))
+  );
+
+  const someSelected = $derived(
+    selectedSnapshots.size > 0 && !allSelected
+  );
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      selectedSnapshots = new Set();
+    } else {
+      selectedSnapshots = new Set(filteredSnapshots.map((s) => s.id));
+    }
+  }
+
+  function toggleSelect(snapshotId: string) {
+    const next = new Set(selectedSnapshots);
+    if (next.has(snapshotId)) {
+      next.delete(snapshotId);
+    } else {
+      next.add(snapshotId);
+    }
+    selectedSnapshots = next;
+  }
+
+  function deleteSelected() {
+    const snapshotsToDelete = snapshots
+      .filter((snapshot) => selectedSnapshots.has(snapshot.id))
+      .map((snapshot) => ({
+        id: snapshot.id,
+        devHubUsername,
+      }));
+
+    if (snapshotsToDelete.length === 0) {
+      return;
+    }
+
+    postMessage({
+      command: "deleteSnapshots",
+      snapshots: snapshotsToDelete,
+    });
+  }
+
+  // Listen for snapshot delete lifecycle messages from the extension
+  $effect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+
+      switch (message.command) {
+        case "snapshotsDeleteStarted":
+          isDeleting = true;
+          break;
+
+        case "snapshotsDeleteCompleted":
+          isDeleting = false;
+          selectedSnapshots = new Set();
+          break;
+
+        case "snapshotsDeleteCancelled":
+        case "snapshotsDeleteError":
+          isDeleting = false;
+          break;
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  });
 </script>
 
 <div class="snapshot-list">
@@ -83,6 +167,22 @@
         options={statusOptions}
         onchange={(v) => (filterStatus = v)}
       />
+
+      {#if selectedSnapshots.size > 0}
+        <button
+          class="delete-button"
+          onclick={deleteSelected}
+          disabled={isDeleting}
+        >
+          {#if isDeleting}
+            <span class="spinner"></span>
+            Deleting...
+          {:else}
+            <span class="codicon codicon-trash"></span>
+            Delete ({selectedSnapshots.size})
+          {/if}
+        </button>
+      {/if}
     </div>
 
     {#if filteredSnapshots.length === 0}
@@ -99,9 +199,16 @@
           {@const daysUntilExp = getDaysUntilExpiration(snapshot.expirationDate)}
           {@const expClass = getSnapshotExpirationClass(snapshot.expirationDate)}
           {@const statusClass = getStatusClass(snapshot.status)}
-          <div class="snapshot-card">
+          <div class="snapshot-card" class:selected={selectedSnapshots.has(snapshot.id)}>
             <div class="snapshot-header">
               <div class="snapshot-name-row">
+                <input
+                  type="checkbox"
+                  class="snapshot-checkbox"
+                  checked={selectedSnapshots.has(snapshot.id)}
+                  onchange={() => toggleSelect(snapshot.id)}
+                  title="Select snapshot for deletion"
+                />
                 <span class="codicon codicon-package snapshot-icon"></span>
                 <h4 class="snapshot-name">{snapshot.snapshotName} <span class="snapshot-id monospace">({snapshot.id})</span></h4>
                 <span class="status-pill {statusClass}">{snapshot.status}</span>
@@ -243,6 +350,49 @@
     flex-wrap: wrap;
   }
 
+  .delete-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--vscode-errorForeground, #f14c4c);
+    border: none;
+    border-radius: 3px;
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
+  .delete-button:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .delete-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .delete-button .codicon {
+    font-size: 14px;
+  }
+
+  .spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   .snapshots-container {
     flex: 1;
     overflow-y: auto;
@@ -257,11 +407,16 @@
     border: 1px solid var(--vscode-widget-border);
     border-radius: 6px;
     padding: 12px;
-    transition: border-color 0.1s;
+    transition: border-color 0.1s, background 0.1s;
   }
 
   .snapshot-card:hover {
     border-color: var(--vscode-focusBorder);
+  }
+
+  .snapshot-card.selected {
+    border-color: var(--vscode-list-activeSelectionBackground);
+    background: var(--vscode-list-activeSelectionBackground);
   }
 
   .snapshot-header {
@@ -273,6 +428,13 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  .snapshot-checkbox {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: var(--vscode-button-background);
   }
 
   .snapshot-icon {

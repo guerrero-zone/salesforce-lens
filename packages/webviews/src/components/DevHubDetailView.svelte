@@ -135,6 +135,14 @@
             (org) => !deletedIds.has(org.id)
           );
           break;
+
+        case "snapshotsDeleteCompleted": {
+          const deletedSnapshotIds = new Set(message.success);
+          snapshots = snapshots.filter(
+            (snapshot) => !deletedSnapshotIds.has(snapshot.id)
+          );
+          break;
+        }
       }
     };
 
@@ -248,6 +256,7 @@
           loading={snapshotsLoading}
           error={snapshotsError}
           unavailable={snapshotsUnavailable}
+          devHubUsername={devHub.username}
         />
       </div>
     {/if}

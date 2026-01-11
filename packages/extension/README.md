@@ -25,7 +25,7 @@ This tab also allows us to filter the Scratch Orgs and select them so we can (bu
 ### Snapshots Tab
 
 Displays a list with all the Snapshots created in the selected DevHub org, with all the information about them.
-We can filter them by their status: Active or Expired.
+We can filter them by their status: Active or Expired, search by name/owner, and select one or more snapshots to (bulk) delete them.
 
 ## Prerequisites
 

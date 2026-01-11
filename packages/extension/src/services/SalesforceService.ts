@@ -921,6 +921,58 @@ export class SalesforceService {
   }
 
   /**
+   * Delete a snapshot by deleting the OrgSnapshot record
+   */
+  async deleteSnapshot(
+    snapshotId: string,
+    devHubUsername: string
+  ): Promise<void> {
+    try {
+      await this.execSfCommand(
+        `sf data delete record --sobject OrgSnapshot --record-id "${snapshotId}" --target-org "${devHubUsername}" --json`
+      );
+    } catch (error) {
+      console.error(`Failed to delete snapshot ${snapshotId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete multiple snapshots
+   */
+  async deleteSnapshots(
+    snapshots: Array<{ id: string; devHubUsername: string }>
+  ): Promise<{
+    success: string[];
+    failed: Array<{ id: string; error: string }>;
+  }> {
+    const success: string[] = [];
+    const failed: Array<{ id: string; error: string }> = [];
+
+    for (const snapshot of snapshots) {
+      try {
+        await this.deleteSnapshot(snapshot.id, snapshot.devHubUsername);
+        success.push(snapshot.id);
+      } catch (error) {
+        failed.push({
+          id: snapshot.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Invalidate snapshots info cache for affected DevHubs since counts changed
+    if (success.length > 0) {
+      const affectedDevHubs = new Set(snapshots.map((s) => s.devHubUsername));
+      for (const devHub of affectedDevHubs) {
+        this.snapshotsInfoCache.invalidate(`snapshots-info:${devHub}`);
+      }
+    }
+
+    return { success, failed };
+  }
+
+  /**
    * Stream DevHubs data progressively with callbacks for each update.
    * This method optimizes perceived performance by:
    * 1. Immediately sending cached data if available

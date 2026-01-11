@@ -196,6 +196,10 @@ export class DashboardPanel {
       case "getSnapshots":
         await this._sendSnapshots(message.devHubUsername);
         return;
+
+      case "deleteSnapshots":
+        await this._deleteSnapshots(message.snapshots);
+        return;
     }
   }
 
@@ -414,6 +418,64 @@ export class DashboardPanel {
       });
       vscode.window.showErrorMessage(
         `Failed to delete scratch orgs: ${errorMessage}`
+      );
+    }
+  }
+
+  private async _deleteSnapshots(
+    snapshots: Array<{ id: string; devHubUsername: string }>
+  ): Promise<void> {
+    try {
+      const confirm = await vscode.window.showWarningMessage(
+        `Are you sure you want to delete ${snapshots.length} snapshot(s)?`,
+        { modal: true },
+        "Delete"
+      );
+
+      if (confirm !== "Delete") {
+        this._postMessage({
+          command: "snapshotsDeleteCancelled",
+        });
+        return;
+      }
+
+      // Non-modal toast so the user knows work has started
+      vscode.window.showInformationMessage(
+        `Deleting ${snapshots.length} snapshot(s)...`
+      );
+
+      this._postMessage({ command: "snapshotsDeleteStarted" });
+      const result = await salesforceService.deleteSnapshots(snapshots);
+
+      if (result.success.length > 0) {
+        vscode.window.showInformationMessage(
+          `Successfully deleted ${result.success.length} snapshot(s)`
+        );
+      }
+
+      if (result.failed.length > 0) {
+        vscode.window.showWarningMessage(
+          `Failed to delete ${result.failed.length} snapshot(s)`
+        );
+      }
+
+      this._postMessage({
+        command: "snapshotsDeleteCompleted",
+        success: result.success,
+        failed: result.failed,
+      });
+      // Note: we rely on the webview to optimistically remove deleted
+      // snapshots from its local state, instead of reloading the full
+      // list here for a smoother UX.
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this._postMessage({
+        command: "snapshotsDeleteError",
+        error: errorMessage,
+      });
+      vscode.window.showErrorMessage(
+        `Failed to delete snapshots: ${errorMessage}`
       );
     }
   }
