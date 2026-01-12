@@ -98,7 +98,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _sendDevHubs(forceRefresh = false): Promise<void> {
-    if (!this._view) return;
+    if (!this._view) {
+      return;
+    }
 
     try {
       this._view.webview.postMessage({ command: "devHubsLoading" });

@@ -50,7 +50,14 @@ describe("App Component", () => {
 
   it("should call postMessage to get DevHubs on mount", () => {
     render(App);
-    expect(postMessage).toHaveBeenCalledWith({ command: "getDevHubs" });
+
+    // First message indicates the webview is ready
+    expect(postMessage).toHaveBeenNthCalledWith(1, { command: "webviewReady" });
+    // Second message actually requests DevHubs
+    expect(postMessage).toHaveBeenNthCalledWith(2, {
+      command: "getDevHubs",
+      forceRefresh: false,
+    });
   });
 });
 

@@ -24,7 +24,9 @@ class SimpleCache<T> {
 
   get(key: string): { data: T; isStale: boolean } | null {
     const entry = this.cache.get(key);
-    if (!entry) return null;
+    if (!entry) {
+      return null;
+    }
 
     const isStale = Date.now() - entry.timestamp > this.ttlMs;
     return { data: entry.data, isStale };
@@ -74,7 +76,9 @@ export interface OrgInfo {
  * Determine org type based on instanceUrl
  */
 function determineOrgType(instanceUrl: string): OrgType {
-  if (!instanceUrl) return "Unknown";
+  if (!instanceUrl) {
+    return "Unknown";
+  }
   const url = instanceUrl.toLowerCase();
 
   // Sandbox patterns
@@ -169,6 +173,7 @@ interface SfLimitsResult {
   }>;
 }
 
+/* eslint-disable @typescript-eslint/naming-convention */
 interface SfActiveScratchOrgQueryResult {
   result: {
     records: Array<{
@@ -257,6 +262,7 @@ interface SfSnapshotCountResult {
     totalSize: number;
   };
 }
+/* eslint-enable @typescript-eslint/naming-convention */
 
 // Callback types for streaming updates
 export type DevHubsLoadedCallback = (devHubs: OrgInfo[]) => void;
@@ -308,7 +314,9 @@ export class SalesforceService {
   }
 
   private getOrgsCacheFilePath(): string | undefined {
-    if (!this.storageDir) return undefined;
+    if (!this.storageDir) {
+      return undefined;
+    }
     return path.join(this.storageDir, "orgs-cache.json");
   }
 
@@ -321,9 +329,13 @@ export class SalesforceService {
     };
   } | null {
     const filePath = this.getOrgsCacheFilePath();
-    if (!filePath) return null;
+    if (!filePath) {
+      return null;
+    }
     try {
-      if (!fs.existsSync(filePath)) return null;
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
       const raw = fs.readFileSync(filePath, "utf8");
       const parsed = JSON.parse(raw) as {
         timestamp: number;
@@ -334,11 +346,18 @@ export class SalesforceService {
         };
       };
 
-      if (!parsed || typeof parsed.timestamp !== "number" || !parsed.data)
+      if (!parsed || typeof parsed.timestamp !== "number" || !parsed.data) {
         return null;
-      if (!Array.isArray(parsed.data.devHubs)) return null;
-      if (!Array.isArray(parsed.data.scratchOrgs)) return null;
-      if (!Array.isArray(parsed.data.otherOrgs)) return null;
+      }
+      if (!Array.isArray(parsed.data.devHubs)) {
+        return null;
+      }
+      if (!Array.isArray(parsed.data.scratchOrgs)) {
+        return null;
+      }
+      if (!Array.isArray(parsed.data.otherOrgs)) {
+        return null;
+      }
       return parsed;
     } catch (error) {
       console.warn("Failed to load persisted orgs cache:", error);
@@ -352,7 +371,9 @@ export class SalesforceService {
     otherOrgs: OrgInfo[];
   }): void {
     const filePath = this.getOrgsCacheFilePath();
-    if (!filePath) return;
+    if (!filePath) {
+      return;
+    }
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(
@@ -727,7 +748,12 @@ export class SalesforceService {
 
       const query = `SELECT Id FROM ActiveScratchOrg WHERE ScratchOrgInfoId = '${scratchOrgId}' OR ScratchOrg = '${scratchOrgId}'`;
       const result = await this.execSfCommand<{
-        result: { records: Array<{ Id: string }> };
+        result: {
+          records: Array<{
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            Id: string;
+          }>;
+        };
       }>(
         `sf data query --query "${query}" --target-org "${devHubUsername}" --json`
       );

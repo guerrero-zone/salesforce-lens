@@ -118,7 +118,9 @@ export function activate(context: vscode.ExtensionContext) {
           matchOnDetail: true,
         });
 
-        if (!selected) return;
+        if (!selected) {
+          return;
+        }
 
         await DashboardPanel.showScratchOrgsForDevHub(
           context.extensionUri,

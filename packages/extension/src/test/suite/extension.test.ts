@@ -77,6 +77,7 @@ suite("Extension Test Suite", () => {
 suite("SidebarViewProvider Test Suite", () => {
   test("SidebarViewProvider viewType should be correct", () => {
     // Import the SidebarViewProvider
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     assert.strictEqual(
       SidebarViewProvider.viewType,
@@ -86,6 +87,7 @@ suite("SidebarViewProvider Test Suite", () => {
   });
 
   test("SidebarViewProvider should be constructable", () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
     const provider = new SidebarViewProvider(extensionRoot);
@@ -95,6 +97,7 @@ suite("SidebarViewProvider Test Suite", () => {
 
 suite("DashboardPanel Test Suite", () => {
   test("DashboardPanel viewType should be correct", () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { DashboardPanel } = require("../../DashboardPanel");
     assert.strictEqual(
       DashboardPanel.viewType,
@@ -104,6 +107,7 @@ suite("DashboardPanel Test Suite", () => {
   });
 
   test("DashboardPanel currentPanel should initially be undefined", () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { DashboardPanel } = require("../../DashboardPanel");
     // Reset the current panel
     DashboardPanel.currentPanel = undefined;
@@ -119,6 +123,7 @@ suite("Utility Functions", () => {
   test("getNonce should generate 32 character string", () => {
     // We can't directly test the private getNonce function, but we can test its output
     // by checking the HTML generated includes a nonce
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     // Use the real extension folder so webview assets (webviews/out) exist during tests
     const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
@@ -152,6 +157,7 @@ suite("Utility Functions", () => {
 
 suite("HTML Generation", () => {
   test("Sidebar HTML should contain required elements", () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
     const provider = new SidebarViewProvider(extensionRoot);
@@ -181,6 +187,7 @@ suite("HTML Generation", () => {
   });
 
   test("Sidebar HTML should have proper CSP", () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
     const provider = new SidebarViewProvider(extensionRoot);
@@ -207,6 +214,7 @@ suite("HTML Generation", () => {
 
 suite("Message Handling", () => {
   test("SidebarViewProvider should set up message handler", () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { SidebarViewProvider } = require("../../SidebarViewProvider");
     const extensionRoot = vscode.Uri.file(path.resolve(__dirname, "../../../.."));
     const provider = new SidebarViewProvider(extensionRoot);
