@@ -2,7 +2,7 @@
   "name": "salesforce-lens",
   "displayName": "Salesforce Lens",
   "description": "Salesforce DevOps admin tool",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "publisher": "amguerrero",
   "icon": "resources/icon-marketplace.png",
   "repository": {

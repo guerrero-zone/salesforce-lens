@@ -3,6 +3,12 @@
   import { postMessage } from "../lib/vscode";
   import { formatDate, getDaysRemaining } from "../lib/dateUtils";
   import { getExpirationClass } from "../lib/colorUtils";
+  import {
+    buildScratchOrgsExportFileName,
+    scratchOrgsToCsv,
+    scratchOrgsToJson,
+    type ScratchOrgExportFormat,
+  } from "../lib/exportUtils";
   import { SearchBox, SelectFilter, LoadingState, ErrorState, EmptyState } from "./common";
 
   interface Props {
@@ -18,6 +24,8 @@
   let searchQuery = $state("");
   let selectedOrgs = $state<Set<string>>(new Set());
   let isDeleting = $state(false);
+  let exportMenuOpen = $state(false);
+  let exportMenuEl: HTMLDivElement | null = null;
 
   type SortKey =
     | "scratchOrg"
@@ -172,6 +180,41 @@
     });
   }
 
+  const canExport = $derived(visibleOrgs.length > 0 && !loading && !error);
+
+  function exportScratchOrgs(format: ScratchOrgExportFormat) {
+    if (!canExport) return;
+
+    const fileName = buildScratchOrgsExportFileName(devHubUsername, format);
+    if (format === "json") {
+      postMessage({
+        command: "exportScratchOrgs",
+        format,
+        fileName,
+        content: scratchOrgsToJson(visibleOrgs),
+      });
+    } else {
+      postMessage({
+        command: "exportScratchOrgs",
+        format,
+        fileName,
+        content: scratchOrgsToCsv(visibleOrgs),
+      });
+    }
+    exportMenuOpen = false;
+  }
+
+  $effect(() => {
+    if (!exportMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!exportMenuEl) return;
+      if (e.target instanceof Node && exportMenuEl.contains(e.target)) return;
+      exportMenuOpen = false;
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  });
+
   // Listen for delete messages from extension
   $effect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -219,21 +262,46 @@
       onchange={(v) => (filterDuration = v as DurationFilter)}
     />
 
-    {#if selectedOrgs.size > 0}
-      <button
-        class="delete-button"
-        onclick={deleteSelected}
-        disabled={isDeleting}
-      >
-        {#if isDeleting}
-          <span class="spinner"></span>
-          Deleting...
-        {:else}
-          <span class="codicon codicon-trash"></span>
-          Delete ({selectedOrgs.size})
+    <div class="actions">
+      <div class="export-menu" bind:this={exportMenuEl}>
+        <button
+          type="button"
+          class="export-button"
+          onclick={() => (exportMenuOpen = !exportMenuOpen)}
+          disabled={!canExport}
+          aria-haspopup="menu"
+          aria-expanded={exportMenuOpen}
+          title={visibleOrgs.length === 0 ? "No scratch orgs to export" : "Export filtered list"}
+        >
+          <span class="codicon codicon-export"></span>
+          Export
+          <span class="codicon codicon-chevron-down"></span>
+        </button>
+
+        {#if exportMenuOpen}
+          <div class="export-dropdown" role="menu" aria-label="Export format">
+            <button type="button" role="menuitem" onclick={() => exportScratchOrgs("json")}>
+              JSON (.json)
+            </button>
+            <button type="button" role="menuitem" onclick={() => exportScratchOrgs("csv")}>
+              CSV (.csv)
+            </button>
+          </div>
         {/if}
-      </button>
-    {/if}
+      </div>
+
+      {#if selectedOrgs.size > 0}
+        <button class="delete-button" onclick={deleteSelected} disabled={isDeleting}>
+          {#if isDeleting}
+            <span class="spinner"></span>
+            Deleting...
+          {:else}
+            <span class="codicon codicon-trash"></span>
+            Delete ({selectedOrgs.size})
+          {/if}
+        </button>
+      {/if}
+    </div>
   </div>
 
   {#if loading}
@@ -482,6 +550,77 @@
     flex-wrap: wrap;
   }
 
+  .actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .export-menu {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .export-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--vscode-button-secondaryBackground);
+    border: 1px solid var(--vscode-button-secondaryBackground);
+    border-radius: 3px;
+    color: var(--vscode-button-secondaryForeground);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .export-button:hover:not(:disabled) {
+    background: var(--vscode-button-secondaryHoverBackground);
+  }
+
+  .export-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .export-button .codicon {
+    font-size: 14px;
+  }
+
+  .export-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    min-width: 160px;
+    background: var(--vscode-menu-background, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    padding: 4px;
+    z-index: 10;
+  }
+
+  .export-dropdown button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    color: var(--vscode-foreground);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 3px;
+  }
+
+  .export-dropdown button:hover {
+    background: var(--vscode-list-hoverBackground);
+  }
+
   .delete-button {
     display: flex;
     align-items: center;
@@ -494,7 +633,6 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    margin-left: auto;
   }
 
   .delete-button:hover:not(:disabled) {

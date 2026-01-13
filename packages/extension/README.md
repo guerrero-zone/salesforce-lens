@@ -20,7 +20,7 @@ When clicking on one of the DevHub cards, it navigates to a DevHub detail page w
 
 Displays a list of the Scratch Orgs existing in the selected DevHub org with useful information like who created it, what was the duration selected when it was created, expiry date and how long until it's going to expire, and more...
 
-This tab also allows us to filter the Scratch Orgs and select them so we can (bulk) delete them.
+This tab also allows us to filter the Scratch Orgs, export the list to JSON or CSV and select them so we can (bulk) delete them.
 
 ### Snapshots Tab
 

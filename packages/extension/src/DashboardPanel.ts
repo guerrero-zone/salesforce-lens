@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
 import {
   salesforceService,
   DevHubInfo,
@@ -200,6 +201,57 @@ export class DashboardPanel {
       case "deleteSnapshots":
         await this._deleteSnapshots(message.snapshots);
         return;
+
+      case "exportScratchOrgs":
+        await this._exportScratchOrgsToFile({
+          format: message.format,
+          fileName: message.fileName,
+          content: message.content,
+        });
+        return;
+    }
+  }
+
+  private async _exportScratchOrgsToFile(input: {
+    format: "json" | "csv";
+    fileName: string;
+    content: string;
+  }): Promise<void> {
+    try {
+      const format = input.format === "csv" ? "csv" : "json";
+      const suggestedName =
+        typeof input.fileName === "string" && input.fileName.trim()
+          ? input.fileName.trim()
+          : `scratch-orgs.${format}`;
+
+      const defaultUri = vscode.Uri.file(
+        path.join(os.homedir(), suggestedName)
+      );
+
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri,
+        saveLabel: "Export",
+        filters:
+          format === "json"
+            ? { JSON: ["json"] }
+            : { CSV: ["csv"] },
+      });
+
+      if (!uri) return; // cancelled
+
+      const content = typeof input.content === "string" ? input.content : "";
+      const bytes = new TextEncoder().encode(content);
+      await vscode.workspace.fs.writeFile(uri, bytes);
+
+      vscode.window.showInformationMessage(
+        `Exported scratch orgs to ${path.basename(uri.fsPath)}`
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(
+        `Failed to export scratch orgs: ${errorMessage}`
+      );
     }
   }
 
