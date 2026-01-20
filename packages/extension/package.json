@@ -2,7 +2,7 @@
   "name": "salesforce-lens",
   "displayName": "Salesforce Lens",
   "description": "Salesforce DevOps admin tool",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "publisher": "amguerrero",
   "icon": "resources/icon-marketplace.png",
   "repository": {
@@ -21,6 +21,7 @@
     "Salesforce",
     "Salesforce Management",
     "Scratch Orgs",
+    "Scratch Org Pools",
     "Snapshots"
   ],
   "activationEvents": [],

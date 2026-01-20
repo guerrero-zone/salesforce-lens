@@ -418,12 +418,106 @@ export class SalesforceService {
   }
 
   /**
-   * Execute a Salesforce CLI command and return parsed JSON result
+   * Extract and find the position of a balanced JSON object or array starting at a given index.
+   * Returns the substring if balanced brackets are found, or null if not.
+   */
+  private extractBalancedJson(
+    output: string,
+    startIndex: number
+  ): string | null {
+    const startChar = output[startIndex];
+    if (startChar !== "{" && startChar !== "[") {
+      return null;
+    }
+
+    const endChar = startChar === "{" ? "}" : "]";
+    let depth = 0;
+
+    for (let i = startIndex; i < output.length; i++) {
+      const char = output[i];
+      if (char === startChar) {
+        depth++;
+      } else if (char === endChar) {
+        depth--;
+        if (depth === 0) {
+          return output.substring(startIndex, i + 1);
+        }
+      }
+    }
+
+    return null; // Unbalanced
+  }
+
+  /**
+   * Extract JSON from a string that may contain non-JSON text (warnings, logs, etc.)
+   * before or after the actual JSON content.
+   *
+   * This is necessary because some CLI tools (like sfp) may output warnings or log messages
+   * to stdout that get mixed with the JSON output, especially when running in contexts
+   * where log directories cannot be created (like VS Code extensions).
+   *
+   * The method tries each potential JSON start position ({ or [) and returns the first
+   * one that successfully parses as valid JSON. This handles cases where error messages
+   * contain JavaScript object literals that look like JSON but aren't (unquoted keys, etc.).
+   */
+  private extractJsonFromOutput<T>(output: string): T {
+    // Find all potential JSON start positions ({ or [)
+    const potentialStarts: number[] = [];
+    for (let i = 0; i < output.length; i++) {
+      if (output[i] === "{" || output[i] === "[") {
+        potentialStarts.push(i);
+      }
+    }
+
+    // Try each potential start position until we find valid JSON
+    for (const startIndex of potentialStarts) {
+      const candidate = this.extractBalancedJson(output, startIndex);
+      if (candidate) {
+        try {
+          return JSON.parse(candidate);
+        } catch {
+          // Not valid JSON, try next candidate
+          continue;
+        }
+      }
+    }
+
+    // No valid JSON found, throw with helpful message
+    throw new Error(
+      `Could not extract valid JSON from output. Output starts with: ${output.substring(0, 200)}...`
+    );
+  }
+
+  /**
+   * Execute a Salesforce CLI command and return parsed JSON result.
+   *
+   * Note: Some CLI tools (like sfp pool list) may output warnings or log messages
+   * to stdout before the JSON when they cannot create log directories. This method
+   * handles such cases by extracting the JSON portion from mixed output.
    */
   private async execSfCommand<T>(command: string): Promise<T> {
     try {
-      const { stdout } = await execAsync(command, this.execOptions);
-      return JSON.parse(stdout);
+      console.log(`SF CLI command: ${command}`);
+      const { stdout, stderr } = await execAsync(command, this.execOptions);
+
+      // Log stderr if present (warnings/errors that went to stderr)
+      if (stderr && stderr.trim()) {
+        console.warn(`SF CLI stderr: ${stderr}`);
+      }
+
+      // Try direct JSON parse first (most common case)
+      try {
+        return JSON.parse(stdout);
+      } catch {
+        // If direct parse fails, try to extract JSON from mixed output
+        // This handles cases where warnings/errors are prepended to stdout
+        // (e.g., sfp pool list outputs error stack traces before the JSON
+        // when it cannot create log directories)
+        console.warn(
+          `SF CLI stdout contains non-JSON content, attempting to extract JSON`
+        );
+        return this.extractJsonFromOutput<T>(stdout);
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -958,7 +1052,7 @@ export class SalesforceService {
       // 1. sfp plugin is not installed
       // 2. DevHub doesn't have sfpowerscripts scratch org pooling package
       const result = await this.execSfCommand<SfPoolListResult>(
-        `sf pool list --json --allscratchorgs -v "${devHubUsername}"`
+        `sf pool list --json --allscratchorgs -v ${devHubUsername}`
       );
 
       // The sfp pool list response structure is:
