@@ -22,6 +22,15 @@ Displays a list of the Scratch Orgs existing in the selected DevHub org with use
 
 This tab also allows us to filter the Scratch Orgs, export the list to JSON or CSV and select them so we can (bulk) delete them.
 
+#### Scratch Org Pool Integration
+
+If you're using [sfp](https://docs.flxbl.io/sfp) (the flxbl.io CLI plugin) for scratch org pooling, the extension will automatically detect pool membership and display:
+
+- **Pool name** - Which pool the scratch org belongs to
+- **Pool status** - Whether the org is "Available" or "In use"
+
+This works out of the box for any DevHub that has sfp's scratch org pooling configured. If a DevHub doesn't use pools, the column simply won't show any pool data for those orgs.
+
 ### Snapshots Tab
 
 Displays a list with all the Snapshots created in the selected DevHub org, with all the information about them.
@@ -31,6 +40,7 @@ We can filter them by their status: Active or Expired, search by name/owner, and
 
 - Visual Studio Code `1.99.3` or Cursor.
 - Salesforce CLI (`sf`) installed.
+- (Optional) [sfp CLI plugin](https://docs.flxbl.io/sfp) for scratch org pool integration.
 
 ## Usage
 
@@ -38,7 +48,7 @@ We can filter them by their status: Active or Expired, search by name/owner, and
 - To open a DevHub details page directly from the Command Palette, run `Salesforce Lens: Open DevHub Details` and select the DevHub by **alias or username**.
 - Browse DevHub cards to see active/daily scratch‑org usage; click a card to drill into its scratch orgs.
 - In the scratch org list:
-  - Search by username, alias, creator, or edition.
+  - Search by username, alias, creator, edition, or pool name.
   - Sort by clicking any column header (click again to toggle ascending/descending).
   - Select multiple rows and click **Delete** to bulk-remove; confirmations and results are shown in-place.
 

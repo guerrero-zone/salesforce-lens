@@ -45,10 +45,12 @@ describe("exportUtils", () => {
     const csv = scratchOrgsToCsv(orgs);
     const header = csv.split("\n")[0];
 
-    // Header should include known columns
-    expect(header).toContain("alias");
-    expect(header).toContain("username");
-    expect(header).toContain("expirationDate");
+    // Header should include known columns (human-readable labels)
+    expect(header).toContain("Alias");
+    expect(header).toContain("Username");
+    expect(header).toContain("Expiration Date");
+    expect(header).toContain("Pool");
+    expect(header).toContain("Pool Status");
 
     // Values with commas/quotes/newlines must be quoted + quotes doubled
     expect(csv).toContain('"user,with,comma@example.com"');

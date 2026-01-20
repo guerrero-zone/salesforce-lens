@@ -33,7 +33,8 @@
     | "durationDays"
     | "createdDate"
     | "expirationDate"
-    | "createdBy";
+    | "createdBy"
+    | "pool";
   type SortDirection = "asc" | "desc";
 
   // Default sort: soonest-expiring first (helps prioritize action)
@@ -77,7 +78,8 @@
           org.alias?.toLowerCase().includes(query) ||
           org.signupUsername?.toLowerCase().includes(query) ||
           org.createdBy?.toLowerCase().includes(query) ||
-          org.edition?.toLowerCase().includes(query)
+          org.edition?.toLowerCase().includes(query) ||
+          org.poolName?.toLowerCase().includes(query)
       );
     }
 
@@ -112,6 +114,9 @@
       }
       case "createdBy":
         return (org.createdBy || "").toLowerCase();
+      case "pool":
+        // Sort by pool name, with non-pooled orgs at the end
+        return org.poolName ? org.poolName.toLowerCase() : null;
       default:
         return null;
     }
@@ -249,7 +254,7 @@
   <div class="controls">
     <SearchBox
       value={searchQuery}
-      placeholder="Search by username, alias, creator..."
+      placeholder="Search by username, alias, creator, pool..."
       onchange={(v) => (searchQuery = v)}
     />
 
@@ -482,6 +487,31 @@
                 </span>
               </button>
             </th>
+            <th
+              class="sortable"
+              aria-sort={sortKey === "pool"
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"}
+            >
+              <button
+                type="button"
+                class="sort-button"
+                class:active={sortKey === "pool"}
+                onclick={() => toggleSort("pool")}
+                title="Sort by Pool"
+              >
+                Pool
+                <span class="sort-indicator" class:placeholder={sortKey !== "pool"}>
+                  <span
+                    class="codicon {sortKey === "pool" && sortDirection === "desc"
+                      ? "codicon-triangle-down"
+                      : "codicon-triangle-up"}"
+                  ></span>
+                </span>
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -520,6 +550,18 @@
                 </span>
               </td>
               <td class="creator-cell">{org.createdBy || "N/A"}</td>
+              <td class="pool-cell">
+                {#if org.poolName}
+                  <div class="pool-info">
+                    <span class="pool-name">{org.poolName}</span>
+                    <span class="pool-status" class:available={org.poolStatus === "Available"} class:in-use={org.poolStatus === "In Use"}>
+                      {org.poolStatus}
+                    </span>
+                  </div>
+                {:else}
+                  <span class="no-pool">—</span>
+                {/if}
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -844,6 +886,44 @@
 
   .creator-cell {
     color: var(--vscode-descriptionForeground);
+  }
+
+  .pool-cell {
+    white-space: nowrap;
+  }
+
+  .pool-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pool-name {
+    font-weight: 500;
+    color: var(--vscode-foreground);
+  }
+
+  .pool-status {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    display: inline-block;
+    width: fit-content;
+  }
+
+  .pool-status.available {
+    /* background: var(--vscode-testing-iconPassed, #22c55e); */
+    color: var(--vscode-testing-iconPassed, #22c55e); /* white; */
+  }
+
+  .pool-status.in-use {
+    /* background: var(--vscode-editorWarning-foreground, #cca700); */
+    color: var(--vscode-testing-iconPassed, #cca700); /* white; */
+  }
+
+  .no-pool {
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.5;
   }
 
   .table-footer {

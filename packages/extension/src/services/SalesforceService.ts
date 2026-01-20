@@ -129,6 +129,33 @@ export interface ScratchOrgInfo {
   signupUsername?: string;
   createdBy?: string;
   isExpired: boolean;
+  // Pool information (from sfp plugin, if available)
+  poolName?: string;
+  poolStatus?: string;
+}
+
+/**
+ * Pool scratch org info from sfp plugin's `sf pool list` command
+ */
+export interface PoolScratchOrgInfo {
+  tag: string; // Pool name/tag
+  orgId: string;
+  username: string;
+  expiryDate: string;
+  status: string; // "Available", "In use", etc.
+  loginURL?: string;
+}
+
+/**
+ * Result of pool list command from sfp
+ * Structure: { total, inuse, unused, inprovision, scratchOrgDetails: [...] }
+ */
+interface SfPoolListResult {
+  total: number;
+  inuse: number;
+  unused: number;
+  inprovision: number;
+  scratchOrgDetails: PoolScratchOrgInfo[];
 }
 
 interface SfOrgListResult {
@@ -298,6 +325,10 @@ export class SalesforceService {
   private limitsCache = new SimpleCache<ScratchOrgLimits>(30); // 30 seconds for limits
   private snapshotsInfoCache = new SimpleCache<SnapshotsInfo>(60); // 60 seconds for snapshots info
   private editionsCache = new SimpleCache<string | undefined>(300); // 5 minutes for editions (rarely changes)
+  private poolDataCache = new SimpleCache<{
+    supported: boolean;
+    scratchOrgs: PoolScratchOrgInfo[];
+  }>(60); // 60 seconds for pool data
 
   /**
    * Provide a directory path for persistent caching (usually VS Code globalStorageUri.fsPath).
@@ -408,6 +439,7 @@ export class SalesforceService {
     this.orgsCache.invalidateAll();
     this.limitsCache.invalidateAll();
     this.snapshotsInfoCache.invalidateAll();
+    this.poolDataCache.invalidateAll();
   }
 
   /**
@@ -672,10 +704,12 @@ export class SalesforceService {
 
   /**
    * Get all scratch orgs for a specific DevHub (from the DevHub itself, not just local)
+   * Also enriches with pool information if the DevHub supports sfp pools.
    */
   async getAllScratchOrgsForDevHub(
     devHubUsername: string
   ): Promise<ScratchOrgInfo[]> {
+    console.log(`getAllScratchOrgsForDevHub called for: ${devHubUsername}`);
     try {
       // ActiveScratchOrg only contains *active* scratch orgs. We pull the same display data
       // via the ScratchOrgInfo relationship in a single SOQL query.
@@ -688,11 +722,15 @@ export class SalesforceService {
         "FROM ActiveScratchOrg " +
         "ORDER BY ScratchOrgInfo.CreatedDate DESC";
 
-      const result = await this.execSfCommand<SfActiveScratchOrgQueryResult>(
-        `sf data query --query "${query}" --target-org "${devHubUsername}" --json`
-      );
+      // Fetch scratch orgs and pool data in parallel for better performance
+      const [queryResult, poolData] = await Promise.all([
+        this.execSfCommand<SfActiveScratchOrgQueryResult>(
+          `sf data query --query "${query}" --target-org "${devHubUsername}" --json`
+        ),
+        this.getPoolData(devHubUsername),
+      ]);
 
-      return result.result.records.map((record) => {
+      const scratchOrgs = queryResult.result.records.map((record) => {
         const info = record.ScratchOrgInfo;
         const expirationDate = info?.ExpirationDate || "";
         const createdDate = info?.CreatedDate || "";
@@ -718,6 +756,9 @@ export class SalesforceService {
           isExpired,
         };
       });
+
+      // Enrich scratch orgs with pool information
+      return this.enrichScratchOrgsWithPoolData(scratchOrgs, poolData);
     } catch (error) {
       console.error(
         `Failed to fetch scratch orgs from DevHub ${devHubUsername}:`,
@@ -887,6 +928,155 @@ export class SalesforceService {
       this.snapshotsInfoCache.set(cacheKey, unavailableData);
       return unavailableData;
     }
+  }
+
+  /**
+   * Get pool data for a DevHub using the sfp plugin.
+   * Returns pool scratch orgs if the DevHub supports pools (has sfp/sfpowerscripts installed),
+   * or indicates pools are not supported if the command fails.
+   */
+  async getPoolData(
+    devHubUsername: string,
+    forceRefresh = false
+  ): Promise<{
+    supported: boolean;
+    scratchOrgs: PoolScratchOrgInfo[];
+  }> {
+    const cacheKey = `pool:${devHubUsername}`;
+
+    // Check cache first
+    if (!forceRefresh) {
+      const cached = this.poolDataCache.get(cacheKey);
+      if (cached && !cached.isStale) {
+        return cached.data;
+      }
+    }
+
+    try {
+      // Run sfp pool list command with --allscratchorgs to get all pool scratch orgs
+      // This command will fail if:
+      // 1. sfp plugin is not installed
+      // 2. DevHub doesn't have sfpowerscripts scratch org pooling package
+      const result = await this.execSfCommand<SfPoolListResult>(
+        `sf pool list --json --allscratchorgs -v "${devHubUsername}"`
+      );
+
+      // The sfp pool list response structure is:
+      // { total: N, inuse: N, unused: N, inprovision: N, scratchOrgDetails: [...] }
+      // Each scratchOrgDetail has: tag, orgId, loginURL, username, expiryDate, status
+      const poolOrgs: PoolScratchOrgInfo[] = result.scratchOrgDetails || [];
+
+      console.log(
+        `Pool data fetched for ${devHubUsername}: ${poolOrgs.length} orgs (${result.inuse || 0} in use, ${result.unused || 0} available)`
+      );
+
+      const data = {
+        supported: true,
+        scratchOrgs: poolOrgs,
+      };
+
+      this.poolDataCache.set(cacheKey, data);
+      return data;
+    } catch (error) {
+      // Command failed - treat as pools not supported for this DevHub
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.warn(
+        `Pool data not available for DevHub ${devHubUsername}: ${errorMessage}`
+      );
+
+      const data = {
+        supported: false,
+        scratchOrgs: [],
+      };
+
+      this.poolDataCache.set(cacheKey, data);
+      return data;
+    }
+  }
+
+  /**
+   * Normalize Salesforce org ID to 15-character version for comparison.
+   * Salesforce IDs can be 15 or 18 characters; the 18-char version adds a case-insensitive suffix.
+   */
+  private normalizeOrgId(orgId: string): string {
+    if (!orgId) {
+      return "";
+    }
+    // Take the first 15 characters and lowercase for comparison
+    return orgId.substring(0, 15).toLowerCase();
+  }
+
+  /**
+   * Enrich scratch orgs with pool information.
+   * Matches pool scratch orgs by username or orgId to add poolName and poolStatus.
+   */
+  private enrichScratchOrgsWithPoolData(
+    scratchOrgs: ScratchOrgInfo[],
+    poolData: { supported: boolean; scratchOrgs: PoolScratchOrgInfo[] }
+  ): ScratchOrgInfo[] {
+    if (!poolData.supported || poolData.scratchOrgs.length === 0) {
+      console.log(
+        `Pool enrichment: pools ${poolData.supported ? "supported but empty" : "not supported"}`
+      );
+      return scratchOrgs;
+    }
+
+    console.log(
+      `Pool enrichment: ${poolData.scratchOrgs.length} pool orgs, ${scratchOrgs.length} scratch orgs`
+    );
+
+    // Create maps for efficient lookup by username and orgId
+    const poolOrgsByUsername = new Map<string, PoolScratchOrgInfo>();
+    const poolOrgsByOrgId = new Map<string, PoolScratchOrgInfo>();
+
+    for (const poolOrg of poolData.scratchOrgs) {
+      // Index by lowercase username
+      if (poolOrg.username) {
+        poolOrgsByUsername.set(poolOrg.username.toLowerCase(), poolOrg);
+      }
+      // Index by normalized orgId (15-char, lowercase)
+      if (poolOrg.orgId) {
+        poolOrgsByOrgId.set(this.normalizeOrgId(poolOrg.orgId), poolOrg);
+      }
+    }
+
+    let matchCount = 0;
+
+    // Enrich scratch orgs with pool information
+    const enrichedOrgs = scratchOrgs.map((org) => {
+      let poolOrg: PoolScratchOrgInfo | undefined;
+
+      // First, try to match by username (signupUsername or username)
+      const usernameToMatch = (
+        org.signupUsername ||
+        org.username ||
+        ""
+      ).toLowerCase();
+      if (usernameToMatch) {
+        poolOrg = poolOrgsByUsername.get(usernameToMatch);
+      }
+
+      // If no match by username, try matching by orgId
+      if (!poolOrg && org.orgId) {
+        poolOrg = poolOrgsByOrgId.get(this.normalizeOrgId(org.orgId));
+      }
+
+      if (poolOrg) {
+        matchCount++;
+        return {
+          ...org,
+          poolName: poolOrg.tag,
+          poolStatus: poolOrg.status,
+        };
+      }
+
+      return org;
+    });
+
+    console.log(`Pool enrichment: matched ${matchCount} scratch orgs to pools`);
+
+    return enrichedOrgs;
   }
 
   /**

@@ -242,6 +242,7 @@ Before testing, ensure:
 - Sidebar panel for quick access
 - Command Palette: open DevHub details by selecting a DevHub alias/username (`Salesforce Lens: Open DevHub Details`)
 - Scratch org list: filter/search and sort by any column (ascending/descending)
+- Scratch org pool integration: if you use [sfp](https://docs.flxbl.io/sfp) for pooling, the extension shows which pool each scratch org belongs to and its availability status
 
 ## Extension Settings
 

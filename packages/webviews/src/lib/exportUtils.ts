@@ -15,6 +15,8 @@ const SCRATCH_ORG_CSV_COLUMNS: Array<{
   { key: "createdDate", header: "Created Date" },
   { key: "expirationDate", header: "Expiration Date" },
   { key: "createdBy", header: "Created By" },
+  { key: "poolName", header: "Pool" },
+  { key: "poolStatus", header: "Pool Status" },
 ] as const;
 
 function csvEscape(value: unknown): string {

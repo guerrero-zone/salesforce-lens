@@ -33,7 +33,27 @@ export interface ScratchOrgInfo {
   edition?: string;
   signupUsername?: string;
   createdBy?: string;
+  // Pool information (from sfp plugin, if available)
+  poolName?: string;
+  poolStatus?: "Available" | "In Use" | string;
 }
+
+/**
+ * Pool scratch org info from sfp plugin
+ */
+export interface PoolScratchOrgInfo {
+  tag: string; // Pool name/tag
+  orgId: string;
+  username: string;
+  expiryDate: string;
+  status: string; // "Available", "In use", etc.
+  loginURL?: string;
+}
+
+/**
+ * Pool support status for a DevHub
+ */
+export type PoolSupportStatus = "available" | "unavailable" | "loading";
 
 export interface SnapshotInfo {
   id: string;
