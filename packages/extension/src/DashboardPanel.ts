@@ -76,6 +76,13 @@ export class DashboardPanel {
         }
       );
 
+      // Set the icon for the panel tab to match the extension icon (theme-aware)
+      // Use dark icon for light themes and light icon for dark themes for better visibility
+      panel.iconPath = {
+        light: vscode.Uri.joinPath(extensionUri, "resources", "icon-light.svg"),
+        dark: vscode.Uri.joinPath(extensionUri, "resources", "icon-dark.svg"),
+      };
+
       console.log("Panel created, initializing DashboardPanel");
       DashboardPanel.currentPanel = new DashboardPanel(panel, extensionUri);
       console.log("DashboardPanel initialized successfully");
@@ -90,6 +97,12 @@ export class DashboardPanel {
   }
 
   public static revive(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    // Set the icon for the panel tab to match the extension icon (theme-aware)
+    // Use dark icon for light themes and light icon for dark themes for better visibility
+    panel.iconPath = {
+      light: vscode.Uri.joinPath(extensionUri, "resources", "icon-light.svg"),
+      dark: vscode.Uri.joinPath(extensionUri, "resources", "icon-dark.svg"),
+    };
     DashboardPanel.currentPanel = new DashboardPanel(panel, extensionUri);
   }
 
